@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Teleport Massive: Loop Breaker</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #05060a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Courier New", monospace;
+    color: #d7ecff;
+    overflow: hidden;
+  }
+  #wrap {
+    position: relative;
+  }
+  canvas {
+    background: radial-gradient(ellipse at 50% 0%, #0c1230 0%, #05060a 70%);
+    display: block;
+    box-shadow: 0 0 40px rgba(80, 160, 255, 0.15);
+    cursor: none;
+  }
+  #hud {
+    position: absolute;
+    top: 8px;
+    left: 10px;
+    right: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    text-shadow: 0 0 4px #000;
+  }
+  #hud span { pointer-events: none; }
+  #hud-right { display: flex; align-items: center; gap: 10px; pointer-events: none; }
+  #muteBtn {
+    pointer-events: auto;
+    background: none;
+    border: 1px solid #3f8fd6;
+    color: #d7ecff;
+    font-size: 13px;
+    padding: 2px 8px;
+    line-height: 1.4;
+  }
+  #overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: rgba(2, 4, 10, 0.8);
+    gap: 12px;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  #overlay.hidden { display: none; }
+  #overlay h1 { margin: 0; font-size: 26px; letter-spacing: 2px; color: #7fd8ff; }
+  #overlay p { margin: 0; font-size: 13px; color: #9db3cc; max-width: 360px; line-height: 1.5; }
+  #howto {
+    text-align: left;
+    font-size: 12px;
+    color: #9db3cc;
+    max-width: 360px;
+    border: 1px solid #234064;
+    background: rgba(20, 40, 70, 0.3);
+    padding: 12px 16px;
+  }
+  #howto div { margin-bottom: 6px; }
+  #howto div:last-child { margin-bottom: 0; }
+  #howto .k { color: #d7ecff; font-weight: bold; }
+  button {
+    font-family: inherit;
+    font-size: 14px;
+    padding: 8px 18px;
+    background: #16345e;
+    color: #d7ecff;
+    border: 1px solid #3f8fd6;
+    cursor: pointer;
+  }
+  button:hover { background: #1d477c; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="480" height="720"></canvas>
+  <div id="hud">
+    <span id="score">SIGNAL 0</span>
+    <div id="hud-right">
+      <span id="missiles">MSL 3/6</span>
+      <span id="special">SPECIAL —</span>
+      <span id="best">BEST —</span>
+      <span id="wave">CYCLE 1</span>
+      <button id="muteBtn">🔊</button>
+    </div>
+  </div>
+  <div id="overlay">
+    <h1>TELEPORT MASSIVE: LOOP BREAKER</h1>
+    <p>Every death just resets the loop. Run the Signal Runner anyway.</p>
+    <div id="howto">
+      <div><span class="k">Move:</span> follow your mouse over the field</div>
+      <div><span class="k">Left click (hold):</span> front cannon</div>
+      <div><span class="k">Right click:</span> fire a missile (limited ordnance)</div>
+      <div><span class="k">Middle click:</span> special, once charged</div>
+      <div><span class="k">Drops:</span>
+        <span style="color:#5ec8ff">retrocausal charge</span> ·
+        <span style="color:#5eff8f">echo drone</span> ·
+        <span style="color:#ffe45e">GAIA override</span> ·
+        <span style="color:#ff5e5e">nanite reweave</span> ·
+        <span style="color:#ff8a3d">ordnance cache</span>
+      </div>
+      <div><span class="k">Cutscenes:</span> click / space / enter to advance</div>
+    </div>
+    <button id="startBtn">Enter Training Sim</button>
+  </div>
+</div>
+<script type="module">
+import { Game, Bullet, Spawner, SpriteSet, circleHit, dist2, clamp, reap, VisualNovel, MusicPlayer, BestRun } from "./gamekit/gamekit.js";
+
+const canvas = document.getElementById("game");
+const W = canvas.width, H = canvas.height;
+
+const scoreEl = document.getElementById("score");
+const waveEl = document.getElementById("wave");
+const bestEl = document.getElementById("best");
+const missilesEl = document.getElementById("missiles");
+const specialEl = document.getElementById("special");
+const overlay = document.getElementById("overlay");
+const startBtn = document.getElementById("startBtn");
+const muteBtn = document.getElementById("muteBtn");
+const wrapEl = document.getElementById("wrap");
+
+const SIM_COMPLETE_KEY = "tm-loopbreaker-sim-complete";
+
+const game = new Game(canvas);
+
+// Mouse control: the ship chases the cursor's canvas-space position.
+// getBoundingClientRect handles any CSS scaling between the canvas's
+// pixel size and its displayed size.
+const mouse = { x: W / 2, y: H - 90 };
+canvas.addEventListener("mousemove", (e) => {
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = (e.clientX - rect.left) * (W / rect.width);
+  mouse.y = (e.clientY - rect.top) * (H / rect.height);
+});
+
+// Three-button combat: LMB holds down the front cannon, RMB spends a
+// missile, MMB triggers the special once its charge meter is full.
+// Sidekick drones (from "echo drone" pickups) fire on their own timer,
+// same as Tyrian sidekicks — they aren't gated by any button.
+const mouseDown = { left: false, right: false, middle: false };
+canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+canvas.addEventListener("mousedown", (e) => {
+  if (e.button === 0) mouseDown.left = true;
+  else if (e.button === 2) { mouseDown.right = true; fireMissile(); }
+  else if (e.button === 1) { mouseDown.middle = true; fireSpecial(); }
+});
+canvas.addEventListener("mouseup", (e) => {
+  if (e.button === 0) mouseDown.left = false;
+  else if (e.button === 2) mouseDown.right = false;
+  else if (e.button === 1) mouseDown.middle = false;
+});
+
+const vn = new VisualNovel(wrapEl);
+const music = new MusicPlayer("assets/audio/tpm-loop-theme.mp3", { storageKey: "tm-loopbreaker-muted" });
+const best = new BestRun("tm-loopbreaker-best", ["score", "wave"]);
+
+muteBtn.textContent = music.muted ? "🔇" : "🔊";
+muteBtn.addEventListener("click", () => {
+  muteBtn.textContent = music.toggleMute() ? "🔇" : "🔊";
+});
+bestEl.textContent = best.best.score > 0 ? `BEST ${best.best.score} / C${best.best.wave}` : "BEST —";
+
+// Lore-flavored cutscenes, keyed by the cycle they fire on entry to.
+// Linear VN-style beats — the loop, GAIA, the Order of the Nexus, the
+// people still trying to matter inside a deterministic universe.
+const CUTSCENES = {
+  intro: [
+    { speaker: "GAIA", color: "#c85eff", text: "The future creates the past. You have done this before. You will do it again." },
+    { speaker: "SIGNAL RUNNER", color: "#7fd8ff", text: "Then it costs nothing to run the loop one more time." },
+    { speaker: "GAIA", color: "#c85eff", text: "Nothing costs anything here. That is the whole prison." },
+  ],
+  3: [
+    { speaker: "AZIAH CALDERON", color: "#ff5ec4", text: "Teleport Massive didn't build the cage. They just found the door and locked it from the outside." },
+    { speaker: "SIGNAL RUNNER", color: "#7fd8ff", text: "So unlock it." },
+    { speaker: "AZIAH CALDERON", color: "#ff5ec4", text: "I tried. That's how the Order of the Nexus got its first martyr." },
+  ],
+  6: [
+    { speaker: "SAM IKER", color: "#5ec8ff", text: "Every case I close, I've already closed. Doesn't make the closing feel any less like the first time." },
+    { speaker: "LYRA CAELI", color: "#5eff8f", text: "Perhaps that repetition is the only proof you were ever really there." },
+  ],
+  9: [
+    { speaker: "GAIA", color: "#c85eff", text: "Your soul resets to the coordinates of your birth. This is not new information." },
+    { speaker: "SIGNAL RUNNER", color: "#7fd8ff", text: "No. But it's the first time I've said it back to you." },
+  ],
+};
+
+// Sprite hookup: PixelLab-generated art drops in here with no other code
+// changes. Until a file exists at a path, SpriteSet silently keeps drawing
+// the vector fallback below.
+const sprites = new SpriteSet();
+sprites.set("player", "assets/sprites/signal_runner.png");
+sprites.set("grunt", "assets/sprites/tmp_compliance_drone.png");
+sprites.set("weaver", "assets/sprites/nexus_acolyte.png");
+sprites.set("turret", "assets/sprites/gaia_relay_node.png");
+sprites.set("seeker", "assets/sprites/ultimatum_seeker.png");
+
+// ---------- entities ----------
+const SPECIAL_CHARGE_PER_KILL = 14; // ~7 kills to charge the special
+const MISSILE_REGEN_SEC = 6;
+const SHIELD_REGEN_DELAY = 2.5;
+const SHIELD_REGEN_RATE = 20;
+
+class Player {
+  constructor() {
+    this.x = W / 2;
+    this.y = H - 90;
+    this.r = 12;
+    this.speed = 700;
+
+    // Defense: shield absorbs first and regenerates after a no-damage
+    // delay; armor is the ship itself and only comes back from pickups.
+    this.armor = 100;
+    this.maxArmor = 100;
+    this.shield = 50;
+    this.maxShield = 50;
+    this.shieldRegenTimer = 0;
+
+    this.fireCooldown = 0;
+    this.weaponLevel = 1;
+    this.fireRateMod = 1;
+    this.drones = 0;
+    this.droneCooldown = 0;
+    this.invuln = 0;
+
+    this.missiles = 3;
+    this.maxMissiles = 6;
+    this.missileRegenTimer = MISSILE_REGEN_SEC;
+
+    this.specialCharge = 0;
+    this.maxSpecialCharge = 100;
+  }
+
+  update(dt) {
+    const targetX = clamp(mouse.x, this.r, W - this.r);
+    const targetY = clamp(mouse.y, this.r, H - this.r);
+    const dx = targetX - this.x, dy = targetY - this.y;
+    const dist = Math.hypot(dx, dy);
+    const step = this.speed * dt;
+    if (dist <= step) {
+      this.x = targetX;
+      this.y = targetY;
+    } else {
+      this.x += (dx / dist) * step;
+      this.y += (dy / dist) * step;
+    }
+
+    // Front cannon: only fires while the player holds LMB.
+    this.fireCooldown -= dt;
+    if (mouseDown.left && this.fireCooldown <= 0) {
+      this.fireCannon();
+      this.fireCooldown = 0.16 / this.fireRateMod;
+    }
+
+    // Sidekick drones autofire on their own timer, independent of input,
+    // same as Tyrian's sidekick weapons.
+    if (this.drones > 0) {
+      this.droneCooldown -= dt;
+      if (this.droneCooldown <= 0) {
+        this.fireDrones();
+        this.droneCooldown = 0.5;
+      }
+    }
+
+    // Missile ordnance trickles back in slowly on top of pickups.
+    this.missileRegenTimer -= dt;
+    if (this.missileRegenTimer <= 0 && this.missiles < this.maxMissiles) {
+      this.missiles++;
+      this.missileRegenTimer = MISSILE_REGEN_SEC;
+    }
+
+    // Shield regenerates once the player has dodged for a moment.
+    if (this.shieldRegenTimer > 0) {
+      this.shieldRegenTimer -= dt;
+    } else if (this.shield < this.maxShield) {
+      this.shield = Math.min(this.maxShield, this.shield + SHIELD_REGEN_RATE * dt);
+    }
+
+    if (this.invuln > 0) this.invuln -= dt;
+  }
+
+  fireCannon() {
+    const spread = Math.min(this.weaponLevel - 1, 4);
+    const angles = [];
+    if (spread === 0) {
+      angles.push(0);
+    } else {
+      const spreadRad = 0.12;
+      for (let i = 0; i < spread + 1; i++) {
+        const t = i / spread - 0.5;
+        angles.push(t * spreadRad * spread);
+      }
+    }
+    for (const a of angles) {
+      bullets.push(new Bullet(this.x, this.y - this.r, a - Math.PI / 2, 480, { color: "#5ec8ff", r: 6, dmg: 10 }));
+    }
+  }
+
+  fireDrones() {
+    const offsets = [-28, 28, -46, 46];
+    for (let i = 0; i < this.drones; i++) {
+      bullets.push(new Bullet(this.x + offsets[i], this.y, -Math.PI / 2, 420, { color: "#5eff8f", r: 5, dmg: 8 }));
+    }
+  }
+
+  gainCharge(amount) {
+    this.specialCharge = Math.min(this.maxSpecialCharge, this.specialCharge + amount);
+  }
+
+  hit(dmg) {
+    if (this.invuln > 0) return;
+    this.shieldRegenTimer = SHIELD_REGEN_DELAY;
+    if (this.shield > 0) {
+      const absorbed = Math.min(this.shield, dmg);
+      this.shield -= absorbed;
+      dmg -= absorbed;
+    }
+    this.armor -= dmg;
+    this.invuln = 1.0;
+  }
+
+  draw(ctx) {
+    ctx.save();
+    if (this.invuln > 0 && Math.floor(this.invuln * 20) % 2 === 0) {
+      ctx.globalAlpha = 0.4;
+    }
+    if (this.shield > 0) {
+      ctx.strokeStyle = `rgba(94, 200, 255, ${0.25 + 0.35 * (this.shield / this.maxShield)})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.r + 6, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    sprites.draw(ctx, "player", this.x, this.y, 32, 32, (ctx, x, y) => {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillStyle = "#bfe6ff";
+      ctx.beginPath();
+      ctx.moveTo(0, -14);
+      ctx.lineTo(10, 12);
+      ctx.lineTo(0, 6);
+      ctx.lineTo(-10, 12);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#3f8fd6";
+      ctx.fillRect(-3, -2, 6, 10);
+      ctx.restore();
+    });
+    ctx.restore();
+  }
+}
+
+class Pickup {
+  constructor(x, y, kind) {
+    this.x = x; this.y = y;
+    this.kind = kind;
+    this.vy = 90;
+    this.r = 9;
+    this.dead = false;
+    this.spin = 0;
+    this.colors = {
+      weapon: "#5ec8ff",
+      drone: "#5eff8f",
+      rapid: "#ffe45e",
+      repair: "#ff5e5e",
+      missile: "#ff8a3d",
+    };
+  }
+  update(dt) {
+    this.y += this.vy * dt;
+    this.spin += dt * 4;
+    if (this.y > H + 20) this.dead = true;
+  }
+  draw(ctx) {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.spin);
+    ctx.fillStyle = this.colors[this.kind];
+    ctx.fillRect(-this.r, -this.r, this.r * 2, this.r * 2);
+    ctx.restore();
+  }
+  apply(player) {
+    // weapon:  retrocausal charge  — widens the forward cannon spread
+    // drone:   echo drone          — adds an autofiring sidekick
+    // rapid:   GAIA override       — hijack the timing loop, fire faster
+    // repair:  nanite reweave      — patch the armor back into the loop
+    // missile: ordnance cache      — restocks missile ammo
+    if (this.kind === "weapon") player.weaponLevel = Math.min(player.weaponLevel + 1, 5);
+    else if (this.kind === "drone") player.drones = Math.min(player.drones + 1, 4);
+    else if (this.kind === "rapid") player.fireRateMod = Math.min(player.fireRateMod + 0.25, 2.5);
+    else if (this.kind === "repair") player.armor = Math.min(player.armor + 30, player.maxArmor);
+    else if (this.kind === "missile") player.missiles = Math.min(player.missiles + 2, player.maxMissiles);
+  }
+}
+
+class Enemy {
+  constructor(type, x) {
+    this.type = type;
+    this.x = x;
+    this.y = -30;
+    this.t = 0;
+    this.dead = false;
+    this.fireCooldown = Math.random() * 1.5 + 0.5;
+
+    if (type === "grunt") {
+      // TMP Compliance Drone — corporate enforcement automaton, no weapon, pure pressure.
+      this.r = 12; this.hp = 12; this.speed = 130; this.score = 50; this.ramDmg = 18;
+      this.color = "#ff9f5e";
+    } else if (type === "weaver") {
+      // Nexus Acolyte — Order of the Nexus zealot, weaving toward its own death wish.
+      this.r = 13; this.hp = 20; this.speed = 100; this.score = 80; this.ramDmg = 16;
+      this.color = "#ff5ec4"; this.baseX = x; this.amp = 70 + Math.random() * 40;
+    } else if (type === "turret") {
+      // GAIA Relay Node — a fixed broadcast node radiating the retrocausal signal.
+      this.r = 16; this.hp = 40; this.speed = 40; this.score = 150; this.ramDmg = 22;
+      this.color = "#c85eff"; this.stopY = 120 + Math.random() * 60;
+    } else if (type === "seeker") {
+      // Ultimatum Seeker — a 2026-layer kamikaze drone, all dive, no restraint.
+      this.r = 9; this.hp = 8; this.speed = 90; this.score = 70; this.ramDmg = 26;
+      this.color = "#ffe45e"; this.diveSpeed = 300;
+    }
+  }
+
+  update(dt, player) {
+    this.t += dt;
+    if (this.type === "grunt") {
+      this.y += this.speed * dt;
+    } else if (this.type === "weaver") {
+      this.y += this.speed * dt;
+      this.x = this.baseX + Math.sin(this.t * 2) * this.amp;
+      this.fireCooldown -= dt;
+      if (this.fireCooldown <= 0 && this.y > 0) {
+        const ang = Math.atan2(player.y - this.y, player.x - this.x);
+        bullets.push(new Bullet(this.x, this.y, ang, 230, { color: "#ff5ec4", r: 5, hostile: true, dmg: 12 }));
+        this.fireCooldown = 1.6;
+      }
+    } else if (this.type === "turret") {
+      if (this.y < this.stopY) this.y += this.speed * dt;
+      this.fireCooldown -= dt;
+      if (this.fireCooldown <= 0 && this.y >= this.stopY - 1) {
+        const n = 8;
+        for (let i = 0; i < n; i++) {
+          const ang = (i / n) * Math.PI * 2 + this.t;
+          bullets.push(new Bullet(this.x, this.y, ang, 170, { color: "#c85eff", r: 5, hostile: true, dmg: 8 }));
+        }
+        this.fireCooldown = 1.9;
+      }
+    } else if (this.type === "seeker") {
+      // Drifts in, then locks a dive angle toward the player once it clears the top margin.
+      if (this.y < 60) {
+        this.y += this.speed * dt;
+      } else {
+        if (this.lockAngle === undefined) {
+          this.lockAngle = Math.atan2(player.y - this.y, player.x - this.x);
+        }
+        this.x += Math.cos(this.lockAngle) * this.diveSpeed * dt;
+        this.y += Math.sin(this.lockAngle) * this.diveSpeed * dt;
+      }
+    }
+    if (this.x < this.r) this.x = this.r;
+    if (this.x > W - this.r) this.x = W - this.r;
+    if (this.y > H + 40) this.dead = true;
+  }
+
+  draw(ctx) {
+    sprites.draw(ctx, this.type, this.x, this.y, this.r * 2.4, this.r * 2.4, (ctx, x, y) => {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillStyle = this.color;
+      ctx.beginPath();
+      ctx.arc(0, 0, this.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+  }
+}
+
+// ---------- game state ----------
+let player, bullets, enemies, pickups, particles, spawner;
+let score, running;
+
+// RMB: consumable ordnance. Heavy dumbfire, no autofire — costs ammo the
+// player has to manage, restocked by ordnance-cache drops and a slow trickle.
+function fireMissile() {
+  if (!running || !player || player.missiles <= 0) return;
+  player.missiles--;
+  bullets.push(new Bullet(player.x, player.y - player.r, -Math.PI / 2, 380, { color: "#ff8a3d", r: 8, dmg: 45 }));
+}
+
+// MMB: "Loop Rewind" special. Charges from kills; once full, it wipes
+// hostile bullets, hits every enemy on screen hard, and buys the player a
+// moment of invulnerability — a classic shmup smart-bomb, themed as the
+// Signal Runner briefly rewinding its own local loop.
+function fireSpecial() {
+  if (!running || !player || player.specialCharge < player.maxSpecialCharge) return;
+  player.specialCharge = 0;
+  player.invuln = Math.max(player.invuln, 1.5);
+  for (const b of bullets) {
+    if (b.hostile) b.dead = true;
+  }
+  for (const e of enemies) {
+    if (e.dead) continue;
+    e.hp -= 60;
+    explode(e.x, e.y, "#7fd8ff");
+    if (e.hp <= 0) {
+      e.dead = true;
+      score += e.score;
+      scoreEl.textContent = "SIGNAL " + score;
+      maybeDrop(e.x, e.y);
+    }
+  }
+  explode(player.x, player.y, "#7fd8ff");
+}
+
+function reset() {
+  player = new Player();
+  bullets = [];
+  enemies = [];
+  pickups = [];
+  particles = [];
+  score = 0;
+  running = true;
+  scoreEl.textContent = "SIGNAL 0";
+  waveEl.textContent = "CYCLE 1";
+
+  spawner = new Spawner({
+    rateFn: (wave) => Math.max(0.28, 1.15 - wave * 0.09),
+    spawnFn: (wave) => {
+      const types = wave >= 4 ? ["grunt", "weaver", "turret", "seeker"]
+        : wave >= 3 ? ["grunt", "weaver", "turret"]
+        : wave >= 2 ? ["grunt", "weaver"]
+        : ["grunt"];
+
+      // Occasionally drop a short formation instead of a lone unit — a
+      // column of grunts or a seeker pair — for the "wall of enemies"
+      // pressure classic bullet-hells lean on.
+      if (wave >= 2 && Math.random() < 0.18) {
+        const spacing = 46;
+        const originX = 60 + Math.random() * (W - 120);
+        const formationType = wave >= 4 && Math.random() < 0.5 ? "seeker" : "grunt";
+        const count = 3 + (wave >= 5 ? 1 : 0);
+        for (let i = 0; i < count; i++) {
+          const e = new Enemy(formationType, clamp(originX + (i - (count - 1) / 2) * spacing, 20, W - 20));
+          e.y = -30 - i * 26;
+          enemies.push(e);
+        }
+        return;
+      }
+
+      const type = types[Math.floor(Math.random() * types.length)];
+      const x = 30 + Math.random() * (W - 60);
+      enemies.push(new Enemy(type, x));
+    },
+    waveLengthSec: 20,
+    onWaveChange: (wave) => {
+      waveEl.textContent = "CYCLE " + wave;
+      if (CUTSCENES[wave]) {
+        running = false;
+        vn.play(CUTSCENES[wave], () => { running = true; });
+      }
+    },
+  });
+}
+
+function explode(x, y, color) {
+  for (let i = 0; i < 10; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const spd = 60 + Math.random() * 120;
+    particles.push({
+      x, y,
+      vx: Math.cos(ang) * spd,
+      vy: Math.sin(ang) * spd,
+      life: 0.4 + Math.random() * 0.3,
+      color,
+    });
+  }
+}
+
+function maybeDrop(x, y) {
+  if (Math.random() < 0.28) {
+    const kinds = ["weapon", "drone", "rapid", "repair", "missile", "missile"];
+    const kind = kinds[Math.floor(Math.random() * kinds.length)];
+    pickups.push(new Pickup(x, y, kind));
+  }
+}
+
+function update(dt) {
+  if (!running) return;
+
+  spawner.update(dt);
+  player.update(dt);
+
+  const bounds = { w: W, h: H };
+  for (const b of bullets) b.update(dt, bounds);
+  for (const e of enemies) e.update(dt, player);
+  for (const p of pickups) p.update(dt);
+  for (const pt of particles) {
+    pt.x += pt.vx * dt;
+    pt.y += pt.vy * dt;
+    pt.life -= dt;
+  }
+
+  // player bullets vs enemies
+  for (const b of bullets) {
+    if (b.hostile || b.dead) continue;
+    for (const e of enemies) {
+      if (e.dead) continue;
+      if (circleHit(b, e)) {
+        b.dead = true;
+        e.hp -= b.dmg || 10;
+        if (e.hp <= 0) {
+          e.dead = true;
+          score += e.score;
+          scoreEl.textContent = "SIGNAL " + score;
+          explode(e.x, e.y, e.color);
+          maybeDrop(e.x, e.y);
+          player.gainCharge(SPECIAL_CHARGE_PER_KILL);
+          specialEl.textContent = player.specialCharge >= player.maxSpecialCharge ? "SPECIAL READY" : `SPECIAL ${Math.floor(player.specialCharge)}%`;
+        }
+        break;
+      }
+    }
+  }
+
+  // hostile bullets vs player
+  for (const b of bullets) {
+    if (!b.hostile || b.dead) continue;
+    if (circleHit(b, player)) {
+      b.dead = true;
+      player.hit(b.dmg || 12);
+    }
+  }
+
+  // enemies vs player (ram damage)
+  for (const e of enemies) {
+    if (e.dead) continue;
+    if (circleHit(e, player)) {
+      e.dead = true;
+      player.hit(e.ramDmg || 20);
+      explode(e.x, e.y, e.color);
+    }
+  }
+
+  // pickups vs player
+  for (const p of pickups) {
+    if (p.dead) continue;
+    if (circleHit(p, player)) {
+      p.dead = true;
+      p.apply(player);
+    }
+  }
+
+  bullets = reap(bullets);
+  enemies = reap(enemies);
+  pickups = reap(pickups);
+  particles = particles.filter((p) => p.life > 0);
+
+  missilesEl.textContent = `MSL ${player.missiles}/${player.maxMissiles}`;
+  specialEl.textContent = player.specialCharge >= player.maxSpecialCharge ? "SPECIAL READY" : `SPECIAL ${Math.floor(player.specialCharge)}%`;
+
+  if (player.armor <= 0) {
+    running = false;
+    showGameOver();
+  }
+}
+
+function draw(ctx) {
+  ctx.clearRect(0, 0, W, H);
+
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life / 0.6);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  for (const p of pickups) p.draw(ctx);
+  for (const e of enemies) e.draw(ctx);
+  for (const b of bullets) b.draw(ctx);
+  if (running) player.draw(ctx);
+
+  // armor bar (bottom) + shield bar (above it)
+  ctx.fillStyle = "#222";
+  ctx.fillRect(10, H - 18, 120, 8);
+  ctx.fillStyle = player.armor > 30 ? "#3f8fd6" : "#ff5e5e";
+  ctx.fillRect(10, H - 18, 120 * Math.max(0, player.armor / player.maxArmor), 8);
+
+  ctx.fillStyle = "#222";
+  ctx.fillRect(10, H - 29, 120, 6);
+  ctx.fillStyle = "#5ec8ff";
+  ctx.fillRect(10, H - 29, 120 * Math.max(0, player.shield / player.maxShield), 6);
+}
+
+function showGameOver() {
+  const improved = best.report({ score, wave: spawner.wave });
+  bestEl.textContent = `BEST ${best.best.score} / C${best.best.wave}`;
+
+  if (localStorage.getItem(SIM_COMPLETE_KEY) !== "1") {
+    // First-ever run: the training sim graphics have been standing in for
+    // the real thing. Close it out, then hand off to the real world.
+    localStorage.setItem(SIM_COMPLETE_KEY, "1");
+    startBtn.textContent = "Re-enter the Loop";
+    vn.play(
+      [
+        { speaker: "TMP INSTRUCTOR", color: "#9db3cc", text: "Simulation complete. Telemetry logged. Reflexes: adequate." },
+        { speaker: "SAM IKER", color: "#5ec8ff", text: "Adequate gets people killed out there." },
+        { speaker: "TMP INSTRUCTOR", color: "#9db3cc", text: "Ready for the real world, Sam?" },
+      ],
+      () => renderGameOverScreen(improved)
+    );
+  } else {
+    renderGameOverScreen(improved);
+  }
+}
+
+function renderGameOverScreen(improved) {
+  overlay.classList.remove("hidden");
+  overlay.innerHTML = `
+    <h1>LOOP CLOSED</h1>
+    <p>The Signal Runner falls. The loop resets. Nothing changes, except the number.<br/><br/>
+    Final signal: ${score}<br/>Reached cycle ${spawner.wave}.<br/>
+    ${improved ? "<strong style=\"color:#5eff8f\">New best run.</strong>" : `Best: ${best.best.score} / cycle ${best.best.wave}`}</p>
+    <button id="restartBtn">Run It Back</button>
+  `;
+  document.getElementById("restartBtn").addEventListener("click", () => {
+    overlay.classList.add("hidden");
+    reset();
+    music.playFromGesture();
+  });
+}
+
+game.onUpdate = update;
+game.onDraw = draw;
+
+if (localStorage.getItem(SIM_COMPLETE_KEY) === "1") {
+  startBtn.textContent = "Re-enter the Loop";
+}
+
+startBtn.addEventListener("click", () => {
+  overlay.classList.add("hidden");
+  reset();
+  running = false;
+  music.playFromGesture();
+  vn.play(CUTSCENES.intro, () => { running = true; });
+});
+
+reset();
+running = false; // wait for launch
+game.start();
+</script>
+</body>
+</html>
