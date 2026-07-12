@@ -106,20 +106,29 @@ enemies = reap(enemies); // enemies.filter(e => !e.dead)
 
 ## VisualNovel
 
-DOM-based dialogue box for cutscenes wedged between waves: portrait-color
-speaker tag, typewriter text, click/space/Enter to advance. Linear scripts
-only (no branching) — this is a cutscene box, not a full VN engine.
+DOM-based dialogue box for cutscenes wedged between waves: character
+portrait, speaker tag, typewriter text, click/space/Enter to advance. Linear
+scripts only (no branching) — this is a cutscene box, not a full VN engine.
 
 ```js
-const vn = new VisualNovel(document.getElementById("wrap"));
+const vn = new VisualNovel(document.getElementById("wrap"), {
+  portraits: {
+    gaia: { src: "assets/portraits/gaia.png", color: "#c85eff", initial: "G" },
+    sam:  { src: "assets/portraits/sam_iker.png", color: "#7fd8ff", initial: "S" },
+  },
+});
 vn.play(
   [
-    { speaker: "GAIA", color: "#c85eff", text: "Every loop ends the same way. You already know that." },
-    { speaker: "SIGNAL RUNNER", color: "#7fd8ff", text: "Then it won't cost me anything to keep running." },
+    { speaker: "GAIA", portrait: "gaia", color: "#c85eff", text: "Every loop ends the same way. You already know that." },
+    { speaker: "SIGNAL RUNNER", portrait: "sam", color: "#7fd8ff", text: "Then it won't cost me anything to keep running." },
   ],
   () => { /* resume gameplay */ }
 );
 ```
+
+Portrait rendering degrades gracefully: while `src` loads (or if it 404s),
+the box shows a colored `initial` swatch instead — so cutscenes work before
+any art exists. Lines without a `portrait` key hide the portrait slot.
 
 Clicking mid-typewriter snaps the current line to full text before advancing
 (standard VN behavior — impatient players can blow through dialogue).

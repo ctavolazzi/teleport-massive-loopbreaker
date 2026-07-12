@@ -30,6 +30,31 @@
       "file": "sprites/tmp_censor.png",
       "size": 96,
       "prompt": "top-down view massive corporate enforcement flagship, crimson and black armored diamond hull, glowing purple central eye, bristling weapon pods, oppressive bureaucratic dreadnought"
+    },
+    "pickup_weapon": {
+      "file": "sprites/pickup_weapon.png",
+      "size": 24,
+      "prompt": "pixel art game pickup icon, blue double chevron energy charge, glowing"
+    },
+    "pickup_drone": {
+      "file": "sprites/pickup_drone.png",
+      "size": 24,
+      "prompt": "pixel art game pickup icon, small green orb drone with side fins"
+    },
+    "pickup_rapid": {
+      "file": "sprites/pickup_rapid.png",
+      "size": 24,
+      "prompt": "pixel art game pickup icon, yellow lightning bolt, energy overdrive"
+    },
+    "pickup_repair": {
+      "file": "sprites/pickup_repair.png",
+      "size": 24,
+      "prompt": "pixel art game pickup icon, red repair cross on a grey armor plate"
+    },
+    "pickup_missile": {
+      "file": "sprites/pickup_missile.png",
+      "size": 24,
+      "prompt": "pixel art game pickup icon, small orange rocket missile with exhaust flame"
     }
   },
   "portraits": {

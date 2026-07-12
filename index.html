@@ -178,8 +178,11 @@ const pauseEl = document.getElementById("pause");
 const muteBtn = document.getElementById("muteBtn");
 const wrapEl = document.getElementById("wrap");
 
-// ---------- persistent profile ----------
-const PROFILE_KEY = "tm-loopbreaker-profile";
+// ---------- persistent profile: 3 save slots ----------
+const PROFILE_KEY = "tm-loopbreaker-profile"; // legacy single-profile key (migrated to slot 1)
+const SLOT_KEYS = ["tm-lb-slot-1", "tm-lb-slot-2", "tm-lb-slot-3"];
+const ACTIVE_SLOT_KEY = "tm-lb-active-slot";
+let activeSlot = null; // 0..2 once a slot is loaded
 
 function defaultProfile() {
   return {
@@ -194,29 +197,50 @@ function defaultProfile() {
   };
 }
 
-function loadProfile() {
+function readSlot(i) {
   try {
-    const raw = localStorage.getItem(PROFILE_KEY);
-    if (raw) {
-      const p = { ...defaultProfile(), ...JSON.parse(raw) };
-      if (p.simComplete) p.tutorialDone = true; // pre-gauntlet profiles
-      return p;
-    }
-  } catch (_e) { /* corrupt: start fresh */ }
-  const p = defaultProfile();
-  // migrate pre-profile flag from the first prototype build
-  if (localStorage.getItem("tm-loopbreaker-sim-complete") === "1") {
-    p.simComplete = true;
-    p.tutorialDone = true;
+    const raw = localStorage.getItem(SLOT_KEYS[i]);
+    if (!raw) return null;
+    const p = { ...defaultProfile(), ...JSON.parse(raw) };
+    if (p.simComplete) p.tutorialDone = true; // pre-gauntlet saves
+    return p;
+  } catch (_e) {
+    return null;
   }
-  return p;
 }
+
+// One-time migration: the pre-slot single profile becomes save slot 1.
+(function migrateLegacyProfile() {
+  const raw = localStorage.getItem(PROFILE_KEY);
+  if (raw && !localStorage.getItem(SLOT_KEYS[0])) {
+    localStorage.setItem(SLOT_KEYS[0], raw);
+    localStorage.setItem(ACTIVE_SLOT_KEY, "0");
+  }
+  if (raw) localStorage.removeItem(PROFILE_KEY);
+})();
 
 function saveProfile() {
-  localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+  if (activeSlot === null) return;
+  profile.lastPlayed = Date.now();
+  localStorage.setItem(SLOT_KEYS[activeSlot], JSON.stringify(profile));
 }
 
-let profile = loadProfile();
+function loadSlot(i) {
+  activeSlot = i;
+  localStorage.setItem(ACTIVE_SLOT_KEY, String(i));
+  profile = readSlot(i) || defaultProfile();
+  saveProfile();
+}
+
+function eraseSlot(i) {
+  localStorage.removeItem(SLOT_KEYS[i]);
+  if (activeSlot === i) {
+    activeSlot = null;
+    localStorage.removeItem(ACTIVE_SLOT_KEY);
+  }
+}
+
+let profile = defaultProfile(); // replaced by loadSlot() at boot / slot select
 
 // ---------- hangar part catalog ----------
 // cost(level) is the price to go from `level` to `level + 1`.
@@ -282,6 +306,11 @@ sprites.set("weaver", "assets/sprites/nexus_acolyte.png");
 sprites.set("turret", "assets/sprites/gaia_relay_node.png");
 sprites.set("seeker", "assets/sprites/ultimatum_seeker.png");
 sprites.set("boss", "assets/sprites/tmp_censor.png");
+sprites.set("pickup_weapon", "assets/sprites/pickup_weapon.png");
+sprites.set("pickup_drone", "assets/sprites/pickup_drone.png");
+sprites.set("pickup_rapid", "assets/sprites/pickup_rapid.png");
+sprites.set("pickup_repair", "assets/sprites/pickup_repair.png");
+sprites.set("pickup_missile", "assets/sprites/pickup_missile.png");
 
 // The vector shapes ARE the training simulation, diegetically. PixelLab art
 // is the real world — so sprites only render during missions. drawEntity is
@@ -485,12 +514,14 @@ class Pickup {
     if (this.y > H + 20) this.dead = true;
   }
   draw(ctx) {
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    ctx.rotate(this.spin);
-    ctx.fillStyle = this.colors[this.kind];
-    ctx.fillRect(-this.r, -this.r, this.r * 2, this.r * 2);
-    ctx.restore();
+    sprites.draw(ctx, "pickup_" + this.kind, this.x, this.y, 22, 22, (ctx, x, y) => {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(this.spin);
+      ctx.fillStyle = this.colors[this.kind];
+      ctx.fillRect(-this.r, -this.r, this.r * 2, this.r * 2);
+      ctx.restore();
+    });
   }
   apply(player) {
     // weapon:  retrocausal charge — widens the cannon spread (run-scoped)
@@ -1317,8 +1348,37 @@ game.onUpdate = (dt) => {
   else if (state.mode === "mission") updateMission(dt);
 };
 
+// Parallax starfield — always scrolling, even behind menus. Faster stars are
+// brighter (closer); the sim tints them colder than the real world.
+const stars = [];
+for (let i = 0; i < 90; i++) {
+  stars.push({
+    x: Math.random() * W,
+    y: Math.random() * H,
+    spd: 20 + Math.random() * 90,
+    r: Math.random() < 0.8 ? 1 : 2,
+    a: 0.25 + Math.random() * 0.6,
+  });
+}
+let lastStarTs = null;
+function drawStars(ctx) {
+  const now = performance.now();
+  const dt = lastStarTs === null ? 0 : Math.min(0.05, (now - lastStarTs) / 1000);
+  lastStarTs = now;
+  const mult = state.paused ? 0.15 : 1;
+  ctx.fillStyle = state.mode === "mission" ? "#c7d8ea" : "#4a7aa5";
+  for (const s of stars) {
+    s.y += s.spd * dt * mult;
+    if (s.y > H) { s.y = -2; s.x = Math.random() * W; }
+    ctx.globalAlpha = s.a * (0.35 + 0.65 * (s.spd / 110));
+    ctx.fillRect(s.x, s.y, s.r, s.r);
+  }
+  ctx.globalAlpha = 1;
+}
+
 game.onDraw = (ctx) => {
   ctx.clearRect(0, 0, W, H);
+  drawStars(ctx);
   if (!player) return;
 
   // sim waypoints
@@ -1380,7 +1440,179 @@ function refreshCreditsHud() {
   creditsEl.textContent = `${profile.credits} CR`;
 }
 
-function showTitle() {
+function slotSummary(i) {
+  const p = readSlot(i);
+  if (!p) return null;
+  const when = p.lastPlayed ? new Date(p.lastPlayed).toLocaleDateString() : "—";
+  return `${p.credits} CR · ${p.missionsDone.length} mission${p.missionsDone.length === 1 ? "" : "s"} · best ${p.gauntletBest} loops · ${when}`;
+}
+
+function anySaves() {
+  return [0, 1, 2].some((i) => readSlot(i) !== null);
+}
+
+// ---------- main menu ----------
+function showMainMenu() {
+  if (activeSlot !== null) saveProfile(); // never lose progress on the way out
+  state.mode = "title";
+  state.combat = false;
+  objectiveEl.textContent = "";
+  pauseEl.classList.add("hidden");
+  screenEl.classList.remove("hidden");
+  const canContinue = activeSlot !== null || anySaves();
+  screenEl.innerHTML = `
+    <h1>TELEPORT MASSIVE</h1>
+    <h2>LOOP BREAKER</h2>
+    <p>Every death just resets the loop. Run it anyway.</p>
+    <button id="btnContinue" ${canContinue ? "" : "disabled"}>Continue</button>
+    <button id="btnNewGame">New Game</button>
+    <button id="btnLoadGame" ${anySaves() ? "" : "disabled"}>Load Game</button>
+    <button id="btnSettings">Settings</button>
+  `;
+  document.getElementById("btnContinue").addEventListener("click", () => {
+    if (activeSlot === null) {
+      // resume the most recently played save
+      let bestIdx = null, bestTime = -1;
+      for (let i = 0; i < 3; i++) {
+        const p = readSlot(i);
+        if (p && (p.lastPlayed || 0) > bestTime) { bestTime = p.lastPlayed || 0; bestIdx = i; }
+      }
+      if (bestIdx === null) return;
+      loadSlot(bestIdx);
+    }
+    showHub();
+  });
+  document.getElementById("btnNewGame").addEventListener("click", () => showSlotSelect("new"));
+  const lg = document.getElementById("btnLoadGame");
+  if (anySaves()) lg.addEventListener("click", () => showSlotSelect("load"));
+  document.getElementById("btnSettings").addEventListener("click", showSettings);
+}
+
+// mode: "new" — pick a slot for a fresh game (occupied slots arm-confirm overwrite)
+// mode: "load" — load an existing save (empty slots disabled; erase available)
+function showSlotSelect(mode) {
+  state.mode = "title";
+  state.combat = false;
+  objectiveEl.textContent = "";
+  pauseEl.classList.add("hidden");
+  screenEl.classList.remove("hidden");
+  let rows = "";
+  for (let i = 0; i < 3; i++) {
+    const summary = slotSummary(i);
+    const action = mode === "new"
+      ? (summary ? "OVERWRITE" : "START")
+      : (summary ? "LOAD" : "");
+    rows += `
+      <div class="row ${mode === "load" && !summary ? "locked" : ""}">
+        <div>
+          <div class="name">SLOT ${i + 1} ${activeSlot === i ? '<span class="green">ACTIVE</span>' : ""}</div>
+          <div class="sub">${summary || "EMPTY"}</div>
+        </div>
+        <div style="display:flex; gap:6px;">
+          ${action ? `<button class="small" data-slot="${i}" data-occupied="${summary ? 1 : ""}">${action}</button>` : ""}
+          ${mode === "load" && summary ? `<button class="small" data-erase="${i}">ERASE</button>` : ""}
+        </div>
+      </div>`;
+  }
+  screenEl.innerHTML = `
+    <h1>${mode === "new" ? "NEW GAME" : "LOAD GAME"}</h1>
+    <p>${mode === "new" ? "Choose a slot for the new run." : "Every loop you have ever run is still in here somewhere."}</p>
+    ${rows}
+    <button id="btnBackMenu">Back</button>
+  `;
+  screenEl.querySelectorAll("[data-slot]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const i = Number(btn.dataset.slot);
+      if (mode === "new") {
+        if (btn.dataset.occupied && !btn.dataset.armed) {
+          // two-step confirm before wiping an existing save
+          btn.dataset.armed = "1";
+          btn.textContent = "SURE?";
+          btn.classList.add("red");
+          return;
+        }
+        eraseSlot(i);
+        loadSlot(i);
+        showHub();
+      } else {
+        loadSlot(i);
+        showHub();
+      }
+    });
+  });
+  screenEl.querySelectorAll("[data-erase]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (btn.dataset.armed) {
+        eraseSlot(Number(btn.dataset.erase));
+        showSlotSelect(mode);
+      } else {
+        btn.dataset.armed = "1";
+        btn.textContent = "SURE?";
+        btn.classList.add("red");
+      }
+    });
+  });
+  document.getElementById("btnBackMenu").addEventListener("click", showMainMenu);
+}
+
+// ---------- settings ----------
+const VOLUME_KEY = "tm-lb-volume";
+
+function showSettings() {
+  state.mode = "title";
+  state.combat = false;
+  screenEl.classList.remove("hidden");
+  pauseEl.classList.add("hidden");
+  const vol = Math.round(music.audio.volume * 100);
+  screenEl.innerHTML = `
+    <h1>SETTINGS</h1>
+    <div class="row">
+      <div><div class="name">Music</div><div class="sub">Looping theme: TPM Tribal Echoes to Neon Drops</div></div>
+      <button class="small" id="setMute">${music.muted ? "UNMUTE" : "MUTE"}</button>
+    </div>
+    <div class="row">
+      <div><div class="name">Volume</div><div class="sub" id="volLabel">${vol}%</div></div>
+      <div style="display:flex; gap:6px;">
+        <button class="small" id="volDown">−</button>
+        <button class="small" id="volUp">+</button>
+      </div>
+    </div>
+    <div class="row">
+      <div><div class="name red">Erase all data</div><div class="sub">Wipes every save slot and setting</div></div>
+      <button class="small" id="wipeAll">ERASE</button>
+    </div>
+    <button id="btnBackMenu">Back</button>
+  `;
+  document.getElementById("setMute").addEventListener("click", (e) => {
+    music.toggleMute();
+    muteBtn.textContent = music.muted ? "🔇" : "🔊";
+    e.target.textContent = music.muted ? "UNMUTE" : "MUTE";
+  });
+  const setVol = (delta) => {
+    const v = clamp(Math.round(music.audio.volume * 100) + delta, 0, 100);
+    music.audio.volume = v / 100;
+    localStorage.setItem(VOLUME_KEY, String(v));
+    document.getElementById("volLabel").textContent = `${v}%`;
+  };
+  document.getElementById("volDown").addEventListener("click", () => setVol(-10));
+  document.getElementById("volUp").addEventListener("click", () => setVol(10));
+  document.getElementById("wipeAll").addEventListener("click", (e) => {
+    if (e.target.dataset.armed) {
+      for (let i = 0; i < 3; i++) eraseSlot(i);
+      localStorage.removeItem(VOLUME_KEY);
+      showMainMenu();
+    } else {
+      e.target.dataset.armed = "1";
+      e.target.textContent = "SURE?";
+      e.target.classList.add("red");
+    }
+  });
+  document.getElementById("btnBackMenu").addEventListener("click", showMainMenu);
+}
+
+// ---------- ship hub (post-slot-load home) ----------
+function showHub() {
+  if (activeSlot === null) { showMainMenu(); return; }
   state.mode = "title";
   state.combat = false;
   objectiveEl.textContent = "";
@@ -1402,11 +1634,13 @@ function showTitle() {
     <button id="btnSim">${profile.tutorialDone ? `Training Gauntlet — best ${profile.gauntletBest} loops` : "Enter Training Sim"}</button>
     <button id="btnMissions" ${missionsLocked ? "disabled" : ""}>${missionsLocked ? `Missions — survive ${GAUNTLET_MILESTONE_LOOP} gauntlet loops first` : "Missions"}</button>
     <button id="btnHangar">Hangar — ${profile.credits} CR</button>
+    <button id="btnMainMenu">Main Menu — slot ${activeSlot + 1}</button>
   `;
   document.getElementById("btnSim").addEventListener("click", startSim);
   const bm = document.getElementById("btnMissions");
   if (!missionsLocked) bm.addEventListener("click", showMissionSelect);
   document.getElementById("btnHangar").addEventListener("click", showHangar);
+  document.getElementById("btnMainMenu").addEventListener("click", showMainMenu);
 }
 
 function showGauntletResults({ loops, newBest, firstMilestone }) {
@@ -1433,7 +1667,7 @@ function showGauntletResults({ loops, newBest, firstMilestone }) {
   });
   document.getElementById("btnKeepTraining").addEventListener("click", startSim);
   document.getElementById("btnHangar3").addEventListener("click", showHangar);
-  document.getElementById("btnToTitle").addEventListener("click", showTitle);
+  document.getElementById("btnToTitle").addEventListener("click", showMainMenu);
 }
 
 function showMissionSelect() {
@@ -1468,7 +1702,7 @@ function showMissionSelect() {
       if (def) startMission(def);
     });
   });
-  document.getElementById("btnBack").addEventListener("click", showTitle);
+  document.getElementById("btnBack").addEventListener("click", showHub);
 }
 
 function showMissionResults({ success, def, earned, worthy, grantedGear }) {
@@ -1494,7 +1728,7 @@ function showMissionResults({ success, def, earned, worthy, grantedGear }) {
     else startMission(def);
   });
   document.getElementById("btnHangar2").addEventListener("click", showHangar);
-  document.getElementById("btnToTitle").addEventListener("click", showTitle);
+  document.getElementById("btnToTitle").addEventListener("click", showMainMenu);
 }
 
 function showHangar() {
@@ -1555,7 +1789,7 @@ function showHangar() {
       showHangar();
     });
   });
-  document.getElementById("btnBack").addEventListener("click", showTitle);
+  document.getElementById("btnBack").addEventListener("click", showHub);
 }
 
 // ---------- pause menu (ESC) ----------
@@ -1591,7 +1825,7 @@ function togglePause() {
     });
     document.getElementById("btnAbort").addEventListener("click", () => {
       hideScreens();
-      showTitle();
+      showMainMenu();
     });
     document.getElementById("btnMute2").addEventListener("click", () => {
       muteBtn.textContent = music.toggleMute() ? "🔇" : "🔊";
@@ -1615,13 +1849,16 @@ if (new URLSearchParams(location.search).has("debug")) {
     getProfile: () => profile,
     getEnemies: () => enemies,
     advanceSimStage, startSim, startMission, MISSIONS,
-    missionEnd, showTitle, beginGauntlet, gauntletEnd, Boss,
+    missionEnd, showHub, showMainMenu, showSlotSelect, loadSlot, readSlot, beginGauntlet, gauntletEnd, Boss,
   };
 }
 
+const savedVol = localStorage.getItem(VOLUME_KEY);
+if (savedVol !== null) music.audio.volume = clamp(Number(savedVol), 0, 100) / 100;
+
 resetCombat();
 refreshCreditsHud();
-showTitle();
+showMainMenu();
 game.start();
 </script>
 </body>
