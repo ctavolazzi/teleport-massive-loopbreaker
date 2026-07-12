@@ -155,6 +155,7 @@ export class Game {
   constructor(canvas, { maxDt = 0.033 } = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
+    this.ctx.imageSmoothingEnabled = false; // crisp pixel-art scaling
     this.w = canvas.width;
     this.h = canvas.height;
     this.maxDt = maxDt;
