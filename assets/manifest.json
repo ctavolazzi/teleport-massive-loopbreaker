@@ -1,0 +1,62 @@
+{
+  "style": "clean pixel art, no background, transparent background",
+  "sprites": {
+    "player": {
+      "file": "sprites/signal_runner.png",
+      "size": 48,
+      "prompt": "top-down view sci-fi courier spaceship, sleek blue and white hull, single pilot, small nimble racing silhouette, glowing engine trail"
+    },
+    "grunt": {
+      "file": "sprites/tmp_compliance_drone.png",
+      "size": 40,
+      "prompt": "top-down view corporate security drone, angular orange and grey hull, boxy enforcement automaton, small sensor array, menacing but bureaucratic"
+    },
+    "weaver": {
+      "file": "sprites/nexus_acolyte.png",
+      "size": 40,
+      "prompt": "top-down view cultist spacecraft, magenta and black hull, ritualistic asymmetric wings, glowing sigils, unsettling organic-mechanical fusion"
+    },
+    "turret": {
+      "file": "sprites/gaia_relay_node.png",
+      "size": 48,
+      "prompt": "top-down view floating AI broadcast relay station, purple and chrome, radial antenna array, glowing central eye, ominous and ancient"
+    },
+    "seeker": {
+      "file": "sprites/ultimatum_seeker.png",
+      "size": 32,
+      "prompt": "top-down view small kamikaze attack drone, yellow and black warning stripes, minimal aerodynamic shape built for a single fast dive"
+    },
+    "boss": {
+      "file": "sprites/tmp_censor.png",
+      "size": 96,
+      "prompt": "top-down view massive corporate enforcement flagship, crimson and black armored diamond hull, glowing purple central eye, bristling weapon pods, oppressive bureaucratic dreadnought"
+    }
+  },
+  "portraits": {
+    "sam": {
+      "file": "portraits/sam_iker.png",
+      "size": 64,
+      "prompt": "pixel art portrait bust, weary male detective in his 40s, short dark hair, high-collar coat, blue-lit noir lighting, 2111 sci-fi, tired sharp eyes"
+    },
+    "gaia": {
+      "file": "portraits/gaia.png",
+      "size": 64,
+      "prompt": "pixel art portrait, abstract AI presence, glowing purple geometric face made of light and static, no human features, vast and cold"
+    },
+    "instructor": {
+      "file": "portraits/tmp_instructor.png",
+      "size": 64,
+      "prompt": "pixel art portrait bust, corporate training officer, crisp grey Teleport Massive uniform, neutral polite expression, slightly dead behind the eyes"
+    },
+    "aziah": {
+      "file": "portraits/aziah_calderon.png",
+      "size": 64,
+      "prompt": "pixel art portrait bust, brilliant scientist consumed by grief, magenta-lit lab backdrop, intense haunted expression, dark curly hair"
+    },
+    "lyra": {
+      "file": "portraits/lyra_caeli.png",
+      "size": 64,
+      "prompt": "pixel art portrait bust, ancient Neo-Sapien diplomat, serene ageless androgynous face, soft green bioluminescent markings, calm knowing eyes"
+    }
+  }
+}

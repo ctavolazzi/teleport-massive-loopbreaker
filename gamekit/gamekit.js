@@ -203,6 +203,13 @@ function _injectVnStyles() {
     .gk-vn-box { width: 100%; max-width: 440px; background: #0b0e18; border: 1px solid #3f8fd6;
       box-shadow: 0 0 24px rgba(80, 160, 255, 0.2); padding: 14px 16px; cursor: pointer;
       color: #d7ecff; }
+    .gk-vn-row { display: flex; gap: 12px; align-items: flex-start; }
+    .gk-vn-portrait { width: 56px; height: 56px; flex: 0 0 56px; border: 1px solid #234064;
+      display: flex; align-items: center; justify-content: center; font-size: 22px;
+      font-weight: bold; image-rendering: pixelated; overflow: hidden; }
+    .gk-vn-portrait img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+    .gk-vn-portrait.gk-vn-noportrait { display: none; }
+    .gk-vn-main { flex: 1; min-width: 0; }
     .gk-vn-speaker { font-size: 12px; letter-spacing: 1px; font-weight: bold; margin-bottom: 6px; }
     .gk-vn-text { font-size: 13px; line-height: 1.6; min-height: 3.2em; white-space: pre-wrap; }
     .gk-vn-hint { text-align: right; font-size: 11px; color: #6f8bab; margin-top: 8px; opacity: 0.8; }
@@ -211,18 +218,28 @@ function _injectVnStyles() {
 }
 
 export class VisualNovel {
-  constructor(container, { charsPerSec = 45 } = {}) {
+  // `portraits` maps a portrait key to { src, color, initial }. When a line
+  // carries `portrait: key`, the box shows the image at `src` if it loads
+  // (PixelLab art drops in here), otherwise a colored initial swatch.
+  constructor(container, { charsPerSec = 45, portraits = {} } = {}) {
     _injectVnStyles();
     this.charsPerSec = charsPerSec;
+    this.portraits = portraits;
     this.root = document.createElement("div");
     this.root.className = "gk-vn";
     this.root.innerHTML = `
       <div class="gk-vn-box">
-        <div class="gk-vn-speaker"></div>
-        <div class="gk-vn-text"></div>
+        <div class="gk-vn-row">
+          <div class="gk-vn-portrait gk-vn-noportrait"></div>
+          <div class="gk-vn-main">
+            <div class="gk-vn-speaker"></div>
+            <div class="gk-vn-text"></div>
+          </div>
+        </div>
         <div class="gk-vn-hint">click / space to continue</div>
       </div>`;
     container.appendChild(this.root);
+    this.portraitEl = this.root.querySelector(".gk-vn-portrait");
     this.speakerEl = this.root.querySelector(".gk-vn-speaker");
     this.textEl = this.root.querySelector(".gk-vn-text");
     this.lines = [];
@@ -249,8 +266,34 @@ export class VisualNovel {
     this._showLine();
   }
 
+  _showPortrait(line) {
+    const p = this.portraits[line.portrait];
+    if (!p) {
+      this.portraitEl.classList.add("gk-vn-noportrait");
+      this.portraitEl.innerHTML = "";
+      return;
+    }
+    this.portraitEl.classList.remove("gk-vn-noportrait");
+    this.portraitEl.style.background = "#0d1526";
+    this.portraitEl.style.color = p.color || line.color || "#7fd8ff";
+    const fallback = () => {
+      this.portraitEl.innerHTML = "";
+      this.portraitEl.textContent = p.initial || (line.speaker || "?").charAt(0);
+    };
+    if (p.src) {
+      const img = new Image();
+      img.onload = () => { this.portraitEl.innerHTML = ""; this.portraitEl.appendChild(img); };
+      img.onerror = fallback;
+      img.src = p.src;
+      fallback(); // show initial immediately; swapped if/when the image loads
+    } else {
+      fallback();
+    }
+  }
+
   _showLine() {
     const line = this.lines[this.index];
+    this._showPortrait(line);
     this.speakerEl.textContent = line.speaker || "";
     this.speakerEl.style.color = line.color || "#7fd8ff";
     this.textEl.textContent = "";

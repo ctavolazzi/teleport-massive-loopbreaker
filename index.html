@@ -32,21 +32,50 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 14px;
+    font-size: 11px;
+    white-space: nowrap;
     text-shadow: 0 0 4px #000;
   }
   #hud span { pointer-events: none; }
-  #hud-right { display: flex; align-items: center; gap: 10px; pointer-events: none; }
+  #hud-right { display: flex; align-items: center; gap: 7px; pointer-events: none; }
   #muteBtn {
     pointer-events: auto;
     background: none;
     border: 1px solid #3f8fd6;
     color: #d7ecff;
-    font-size: 13px;
-    padding: 2px 8px;
+    font-size: 11px;
+    padding: 2px 6px;
     line-height: 1.4;
+    min-width: 0;
   }
-  #overlay {
+  #objective {
+    position: absolute;
+    top: 32px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: #ffe45e;
+    text-shadow: 0 0 4px #000;
+    pointer-events: none;
+  }
+  #toast {
+    position: absolute;
+    top: 40%;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 16px;
+    letter-spacing: 2px;
+    color: #7fd8ff;
+    text-shadow: 0 0 8px #000;
+    opacity: 0;
+    transition: opacity 0.25s;
+    pointer-events: none;
+  }
+  #toast.show { opacity: 1; }
+  .screen {
     position: absolute;
     inset: 0;
     display: flex;
@@ -54,26 +83,30 @@
     align-items: center;
     justify-content: center;
     text-align: center;
-    background: rgba(2, 4, 10, 0.8);
+    background: rgba(2, 4, 10, 0.85);
     gap: 12px;
     padding: 20px;
     box-sizing: border-box;
+    overflow-y: auto;
   }
-  #overlay.hidden { display: none; }
-  #overlay h1 { margin: 0; font-size: 26px; letter-spacing: 2px; color: #7fd8ff; }
-  #overlay p { margin: 0; font-size: 13px; color: #9db3cc; max-width: 360px; line-height: 1.5; }
-  #howto {
+  .screen.hidden { display: none; }
+  .screen h1 { margin: 0; font-size: 24px; letter-spacing: 2px; color: #7fd8ff; }
+  .screen h2 { margin: 0; font-size: 16px; letter-spacing: 2px; color: #9db3cc; }
+  .screen p { margin: 0; font-size: 13px; color: #9db3cc; max-width: 380px; line-height: 1.5; }
+  .panel {
     text-align: left;
     font-size: 12px;
     color: #9db3cc;
-    max-width: 360px;
+    width: 100%;
+    max-width: 380px;
     border: 1px solid #234064;
     background: rgba(20, 40, 70, 0.3);
     padding: 12px 16px;
+    box-sizing: border-box;
   }
-  #howto div { margin-bottom: 6px; }
-  #howto div:last-child { margin-bottom: 0; }
-  #howto .k { color: #d7ecff; font-weight: bold; }
+  .panel div { margin-bottom: 6px; }
+  .panel div:last-child { margin-bottom: 0; }
+  .panel .k { color: #d7ecff; font-weight: bold; }
   button {
     font-family: inherit;
     font-size: 14px;
@@ -82,8 +115,31 @@
     color: #d7ecff;
     border: 1px solid #3f8fd6;
     cursor: pointer;
+    min-width: 220px;
   }
   button:hover { background: #1d477c; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  button.small { min-width: 0; font-size: 12px; padding: 4px 10px; }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    max-width: 380px;
+    border: 1px solid #234064;
+    background: rgba(20, 40, 70, 0.3);
+    padding: 8px 12px;
+    box-sizing: border-box;
+    font-size: 12px;
+    text-align: left;
+  }
+  .row .name { color: #d7ecff; font-weight: bold; }
+  .row .sub { color: #6f8bab; font-size: 11px; }
+  .gold { color: #ffe45e; }
+  .green { color: #5eff8f; }
+  .red { color: #ff5e5e; }
+  .locked { opacity: 0.55; }
 </style>
 </head>
 <body>
@@ -92,56 +148,96 @@
   <div id="hud">
     <span id="score">SIGNAL 0</span>
     <div id="hud-right">
-      <span id="missiles">MSL 3/6</span>
-      <span id="special">SPECIAL —</span>
-      <span id="best">BEST —</span>
+      <span id="credits" class="gold">0 CR</span>
+      <span id="missiles">MSL 0/0</span>
+      <span id="special">SPC 0%</span>
       <span id="wave">CYCLE 1</span>
       <button id="muteBtn">🔊</button>
     </div>
   </div>
-  <div id="overlay">
-    <h1>TELEPORT MASSIVE: LOOP BREAKER</h1>
-    <p>Every death just resets the loop. Run the Signal Runner anyway.</p>
-    <div id="howto">
-      <div><span class="k">Move:</span> follow your mouse over the field</div>
-      <div><span class="k">Left click (hold):</span> front cannon</div>
-      <div><span class="k">Right click:</span> fire a missile (limited ordnance)</div>
-      <div><span class="k">Middle click:</span> special, once charged</div>
-      <div><span class="k">Drops:</span>
-        <span style="color:#5ec8ff">retrocausal charge</span> ·
-        <span style="color:#5eff8f">echo drone</span> ·
-        <span style="color:#ffe45e">GAIA override</span> ·
-        <span style="color:#ff5e5e">nanite reweave</span> ·
-        <span style="color:#ff8a3d">ordnance cache</span>
-      </div>
-      <div><span class="k">Cutscenes:</span> click / space / enter to advance</div>
-    </div>
-    <button id="startBtn">Enter Training Sim</button>
-  </div>
+  <div id="objective"></div>
+  <div id="toast"></div>
+  <div id="screen" class="screen"></div>
+  <div id="pause" class="screen hidden"></div>
 </div>
 <script type="module">
-import { Game, Bullet, Spawner, SpriteSet, circleHit, dist2, clamp, reap, VisualNovel, MusicPlayer, BestRun } from "./gamekit/gamekit.js";
+import { Game, Bullet, SpriteSet, circleHit, clamp, reap, VisualNovel, MusicPlayer, BestRun } from "./gamekit/gamekit.js";
 
 const canvas = document.getElementById("game");
 const W = canvas.width, H = canvas.height;
 
 const scoreEl = document.getElementById("score");
 const waveEl = document.getElementById("wave");
-const bestEl = document.getElementById("best");
+const creditsEl = document.getElementById("credits");
 const missilesEl = document.getElementById("missiles");
 const specialEl = document.getElementById("special");
-const overlay = document.getElementById("overlay");
-const startBtn = document.getElementById("startBtn");
+const objectiveEl = document.getElementById("objective");
+const toastEl = document.getElementById("toast");
+const screenEl = document.getElementById("screen");
+const pauseEl = document.getElementById("pause");
 const muteBtn = document.getElementById("muteBtn");
 const wrapEl = document.getElementById("wrap");
 
-const SIM_COMPLETE_KEY = "tm-loopbreaker-sim-complete";
+// ---------- persistent profile ----------
+const PROFILE_KEY = "tm-loopbreaker-profile";
 
+function defaultProfile() {
+  return {
+    credits: 0,
+    tutorialDone: false,
+    simComplete: false,
+    gauntletBest: 0,
+    missionsDone: [],
+    parts: { cannon: 1, shield: 1, armor: 1, engine: 1, ordnance: 1 },
+    gear: [],
+    worthy: false,
+  };
+}
+
+function loadProfile() {
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY);
+    if (raw) {
+      const p = { ...defaultProfile(), ...JSON.parse(raw) };
+      if (p.simComplete) p.tutorialDone = true; // pre-gauntlet profiles
+      return p;
+    }
+  } catch (_e) { /* corrupt: start fresh */ }
+  const p = defaultProfile();
+  // migrate pre-profile flag from the first prototype build
+  if (localStorage.getItem("tm-loopbreaker-sim-complete") === "1") {
+    p.simComplete = true;
+    p.tutorialDone = true;
+  }
+  return p;
+}
+
+function saveProfile() {
+  localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+}
+
+let profile = loadProfile();
+
+// ---------- hangar part catalog ----------
+// cost(level) is the price to go from `level` to `level + 1`.
+const PART_DEFS = {
+  cannon:   { name: "Front Cannon",     max: 5, cost: (l) => 250 * l, desc: (l) => `spread tier ${l}` },
+  shield:   { name: "Shield Capacitor", max: 5, cost: (l) => 200 * l, desc: (l) => `${40 + 15 * (l - 1)} shield` },
+  armor:    { name: "Hull Plating",     max: 5, cost: (l) => 200 * l, desc: (l) => `${80 + 20 * (l - 1)} armor` },
+  engine:   { name: "Vector Engine",    max: 4, cost: (l) => 180 * l, desc: (l) => `${560 + 70 * (l - 1)} thrust` },
+  ordnance: { name: "Ordnance Rack",    max: 4, cost: (l) => 220 * l, desc: (l) => `${4 + 2 * (l - 1)} missiles` },
+};
+
+const LEGENDARY_GEAR = {
+  retrocausal_lens: {
+    name: "Retrocausal Lens",
+    desc: "Cannon rounds strike before they are fired. +50% cannon damage.",
+  },
+};
+
+// ---------- engine + input ----------
 const game = new Game(canvas);
 
-// Mouse control: the ship chases the cursor's canvas-space position.
-// getBoundingClientRect handles any CSS scaling between the canvas's
-// pixel size and its displayed size.
 const mouse = { x: W / 2, y: H - 90 };
 canvas.addEventListener("mousemove", (e) => {
   const rect = canvas.getBoundingClientRect();
@@ -149,24 +245,27 @@ canvas.addEventListener("mousemove", (e) => {
   mouse.y = (e.clientY - rect.top) * (H / rect.height);
 });
 
-// Three-button combat: LMB holds down the front cannon, RMB spends a
-// missile, MMB triggers the special once its charge meter is full.
-// Sidekick drones (from "echo drone" pickups) fire on their own timer,
-// same as Tyrian sidekicks — they aren't gated by any button.
-const mouseDown = { left: false, right: false, middle: false };
+const mouseDown = { left: false };
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 canvas.addEventListener("mousedown", (e) => {
   if (e.button === 0) mouseDown.left = true;
-  else if (e.button === 2) { mouseDown.right = true; fireMissile(); }
-  else if (e.button === 1) { mouseDown.middle = true; fireSpecial(); }
+  else if (e.button === 2) fireMissile();
+  else if (e.button === 1) { e.preventDefault(); fireSpecial(); }
 });
 canvas.addEventListener("mouseup", (e) => {
   if (e.button === 0) mouseDown.left = false;
-  else if (e.button === 2) mouseDown.right = false;
-  else if (e.button === 1) mouseDown.middle = false;
 });
 
-const vn = new VisualNovel(wrapEl);
+// ---------- portraits (PixelLab art lands at these paths; colored initials until then) ----------
+const PORTRAITS = {
+  sam:        { src: "assets/portraits/sam_iker.png",       color: "#5ec8ff", initial: "S" },
+  gaia:       { src: "assets/portraits/gaia.png",           color: "#c85eff", initial: "G" },
+  instructor: { src: "assets/portraits/tmp_instructor.png", color: "#9db3cc", initial: "T" },
+  aziah:      { src: "assets/portraits/aziah_calderon.png", color: "#ff5ec4", initial: "A" },
+  lyra:       { src: "assets/portraits/lyra_caeli.png",     color: "#5eff8f", initial: "L" },
+};
+
+const vn = new VisualNovel(wrapEl, { portraits: PORTRAITS });
 const music = new MusicPlayer("assets/audio/tpm-loop-theme.mp3", { storageKey: "tm-loopbreaker-muted" });
 const best = new BestRun("tm-loopbreaker-best", ["score", "wave"]);
 
@@ -174,72 +273,73 @@ muteBtn.textContent = music.muted ? "🔇" : "🔊";
 muteBtn.addEventListener("click", () => {
   muteBtn.textContent = music.toggleMute() ? "🔇" : "🔊";
 });
-bestEl.textContent = best.best.score > 0 ? `BEST ${best.best.score} / C${best.best.wave}` : "BEST —";
 
-// Lore-flavored cutscenes, keyed by the cycle they fire on entry to.
-// Linear VN-style beats — the loop, GAIA, the Order of the Nexus, the
-// people still trying to matter inside a deterministic universe.
-const CUTSCENES = {
-  intro: [
-    { speaker: "GAIA", color: "#c85eff", text: "The future creates the past. You have done this before. You will do it again." },
-    { speaker: "SIGNAL RUNNER", color: "#7fd8ff", text: "Then it costs nothing to run the loop one more time." },
-    { speaker: "GAIA", color: "#c85eff", text: "Nothing costs anything here. That is the whole prison." },
-  ],
-  3: [
-    { speaker: "AZIAH CALDERON", color: "#ff5ec4", text: "Teleport Massive didn't build the cage. They just found the door and locked it from the outside." },
-    { speaker: "SIGNAL RUNNER", color: "#7fd8ff", text: "So unlock it." },
-    { speaker: "AZIAH CALDERON", color: "#ff5ec4", text: "I tried. That's how the Order of the Nexus got its first martyr." },
-  ],
-  6: [
-    { speaker: "SAM IKER", color: "#5ec8ff", text: "Every case I close, I've already closed. Doesn't make the closing feel any less like the first time." },
-    { speaker: "LYRA CAELI", color: "#5eff8f", text: "Perhaps that repetition is the only proof you were ever really there." },
-  ],
-  9: [
-    { speaker: "GAIA", color: "#c85eff", text: "Your soul resets to the coordinates of your birth. This is not new information." },
-    { speaker: "SIGNAL RUNNER", color: "#7fd8ff", text: "No. But it's the first time I've said it back to you." },
-  ],
-};
-
-// Sprite hookup: PixelLab-generated art drops in here with no other code
-// changes. Until a file exists at a path, SpriteSet silently keeps drawing
-// the vector fallback below.
+// ---------- sprites ----------
 const sprites = new SpriteSet();
 sprites.set("player", "assets/sprites/signal_runner.png");
 sprites.set("grunt", "assets/sprites/tmp_compliance_drone.png");
 sprites.set("weaver", "assets/sprites/nexus_acolyte.png");
 sprites.set("turret", "assets/sprites/gaia_relay_node.png");
 sprites.set("seeker", "assets/sprites/ultimatum_seeker.png");
+sprites.set("boss", "assets/sprites/tmp_censor.png");
+
+// The vector shapes ARE the training simulation, diegetically. PixelLab art
+// is the real world — so sprites only render during missions. drawEntity is
+// what every entity's draw() goes through.
+function simMode() { return state.mode !== "mission"; }
+const realSpritesDraw = sprites.draw.bind(sprites);
+sprites.draw = function (ctx, key, x, y, w, h, fallback) {
+  if (simMode()) { if (fallback) fallback(ctx, x, y); return; }
+  realSpritesDraw(ctx, key, x, y, w, h, fallback);
+};
+
+// ---------- difficulty ----------
+// One knob per pressure axis, all driven by `cycle`. Missions ramp these
+// hard; the sim's survival stage uses a fixed mid-range cycle.
+function difficulty(cycle) {
+  // hpMult and bulletSpeed have no ceiling — the gauntlet leans on that to be
+  // technically unwinnable. Everything else saturates so late loops stay
+  // readable instead of becoming a spawn-rate slideshow.
+  return {
+    spawnRate: Math.max(0.16, 0.85 - cycle * 0.07),
+    hpMult: 1 + 0.15 * (cycle - 1),
+    bulletSpeed: 1 + 0.06 * (cycle - 1),
+    aimedGruntChance: Math.min(0.65, 0.12 * Math.max(0, cycle - 2)),
+    formationChance: Math.min(0.45, 0.15 + 0.03 * cycle),
+    formationSize: Math.min(7, 3 + Math.floor(cycle / 2)),
+  };
+}
 
 // ---------- entities ----------
-const SPECIAL_CHARGE_PER_KILL = 14; // ~7 kills to charge the special
-const MISSILE_REGEN_SEC = 6;
-const SHIELD_REGEN_DELAY = 2.5;
-const SHIELD_REGEN_RATE = 20;
+const SPECIAL_CHARGE_PER_KILL = 11;
+const MISSILE_REGEN_SEC = 7;
+const SHIELD_REGEN_DELAY = 3.0;
+const SHIELD_REGEN_RATE = 14;
 
 class Player {
   constructor() {
     this.x = W / 2;
     this.y = H - 90;
     this.r = 12;
-    this.speed = 700;
 
-    // Defense: shield absorbs first and regenerates after a no-damage
-    // delay; armor is the ship itself and only comes back from pickups.
-    this.armor = 100;
-    this.maxArmor = 100;
-    this.shield = 50;
-    this.maxShield = 50;
+    const p = profile.parts;
+    this.speed = 560 + 70 * (p.engine - 1);
+    this.maxShield = 40 + 15 * (p.shield - 1);
+    this.maxArmor = 80 + 20 * (p.armor - 1);
+    this.shield = this.maxShield;
+    this.armor = this.maxArmor;
     this.shieldRegenTimer = 0;
 
+    this.weaponLevel = p.cannon;
+    this.cannonDmg = profile.gear.includes("retrocausal_lens") ? 15 : 10;
     this.fireCooldown = 0;
-    this.weaponLevel = 1;
     this.fireRateMod = 1;
     this.drones = 0;
     this.droneCooldown = 0;
     this.invuln = 0;
 
-    this.missiles = 3;
-    this.maxMissiles = 6;
+    this.maxMissiles = 4 + 2 * (p.ordnance - 1);
+    this.missiles = Math.min(3, this.maxMissiles);
     this.missileRegenTimer = MISSILE_REGEN_SEC;
 
     this.specialCharge = 0;
@@ -260,15 +360,12 @@ class Player {
       this.y += (dy / dist) * step;
     }
 
-    // Front cannon: only fires while the player holds LMB.
     this.fireCooldown -= dt;
     if (mouseDown.left && this.fireCooldown <= 0) {
       this.fireCannon();
       this.fireCooldown = 0.16 / this.fireRateMod;
     }
 
-    // Sidekick drones autofire on their own timer, independent of input,
-    // same as Tyrian's sidekick weapons.
     if (this.drones > 0) {
       this.droneCooldown -= dt;
       if (this.droneCooldown <= 0) {
@@ -277,14 +374,12 @@ class Player {
       }
     }
 
-    // Missile ordnance trickles back in slowly on top of pickups.
     this.missileRegenTimer -= dt;
     if (this.missileRegenTimer <= 0 && this.missiles < this.maxMissiles) {
       this.missiles++;
       this.missileRegenTimer = MISSILE_REGEN_SEC;
     }
 
-    // Shield regenerates once the player has dodged for a moment.
     if (this.shieldRegenTimer > 0) {
       this.shieldRegenTimer -= dt;
     } else if (this.shield < this.maxShield) {
@@ -307,7 +402,7 @@ class Player {
       }
     }
     for (const a of angles) {
-      bullets.push(new Bullet(this.x, this.y - this.r, a - Math.PI / 2, 480, { color: "#5ec8ff", r: 6, dmg: 10 }));
+      bullets.push(new Bullet(this.x, this.y - this.r, a - Math.PI / 2, 480, { color: "#5ec8ff", r: 6, dmg: this.cannonDmg }));
     }
   }
 
@@ -330,8 +425,11 @@ class Player {
       this.shield -= absorbed;
       dmg -= absorbed;
     }
-    this.armor -= dmg;
-    this.invuln = 1.0;
+    if (dmg > 0) {
+      this.armor -= dmg;
+      if (state.mode === "mission") missionState.armorDamage += dmg;
+    }
+    this.invuln = 0.8;
   }
 
   draw(ctx) {
@@ -395,73 +493,86 @@ class Pickup {
     ctx.restore();
   }
   apply(player) {
-    // weapon:  retrocausal charge  — widens the forward cannon spread
-    // drone:   echo drone          — adds an autofiring sidekick
-    // rapid:   GAIA override       — hijack the timing loop, fire faster
-    // repair:  nanite reweave      — patch the armor back into the loop
-    // missile: ordnance cache      — restocks missile ammo
+    // weapon:  retrocausal charge — widens the cannon spread (run-scoped)
+    // drone:   echo drone         — adds an autofiring sidekick
+    // rapid:   GAIA override      — fire faster
+    // repair:  nanite reweave     — restores armor
+    // missile: ordnance cache     — restocks missiles
     if (this.kind === "weapon") player.weaponLevel = Math.min(player.weaponLevel + 1, 5);
     else if (this.kind === "drone") player.drones = Math.min(player.drones + 1, 4);
     else if (this.kind === "rapid") player.fireRateMod = Math.min(player.fireRateMod + 0.25, 2.5);
-    else if (this.kind === "repair") player.armor = Math.min(player.armor + 30, player.maxArmor);
+    else if (this.kind === "repair") player.armor = Math.min(player.armor + 25, player.maxArmor);
     else if (this.kind === "missile") player.missiles = Math.min(player.missiles + 2, player.maxMissiles);
   }
 }
 
 class Enemy {
-  constructor(type, x) {
+  constructor(type, x, diff) {
     this.type = type;
     this.x = x;
     this.y = -30;
     this.t = 0;
     this.dead = false;
-    this.fireCooldown = Math.random() * 1.5 + 0.5;
+    this.diff = diff || difficulty(1);
+    this.fireCooldown = Math.random() * 1.2 + 0.4;
 
     if (type === "grunt") {
-      // TMP Compliance Drone — corporate enforcement automaton, no weapon, pure pressure.
-      this.r = 12; this.hp = 12; this.speed = 130; this.score = 50; this.ramDmg = 18;
+      // TMP Compliance Drone — pressure unit; at higher cycles it takes aimed potshots.
+      this.r = 12; this.hp = 12; this.speed = 140; this.score = 50; this.ramDmg = 18;
       this.color = "#ff9f5e";
+      this.aims = Math.random() < this.diff.aimedGruntChance;
     } else if (type === "weaver") {
-      // Nexus Acolyte — Order of the Nexus zealot, weaving toward its own death wish.
-      this.r = 13; this.hp = 20; this.speed = 100; this.score = 80; this.ramDmg = 16;
+      // Nexus Acolyte — sine weave, aimed twin-shot bursts.
+      this.r = 13; this.hp = 20; this.speed = 110; this.score = 80; this.ramDmg = 16;
       this.color = "#ff5ec4"; this.baseX = x; this.amp = 70 + Math.random() * 40;
     } else if (type === "turret") {
-      // GAIA Relay Node — a fixed broadcast node radiating the retrocausal signal.
-      this.r = 16; this.hp = 40; this.speed = 40; this.score = 150; this.ramDmg = 22;
+      // GAIA Relay Node — parks and radiates rotating radial bursts.
+      this.r = 16; this.hp = 45; this.speed = 40; this.score = 150; this.ramDmg = 22;
       this.color = "#c85eff"; this.stopY = 120 + Math.random() * 60;
     } else if (type === "seeker") {
-      // Ultimatum Seeker — a 2026-layer kamikaze drone, all dive, no restraint.
-      this.r = 9; this.hp = 8; this.speed = 90; this.score = 70; this.ramDmg = 26;
-      this.color = "#ffe45e"; this.diveSpeed = 300;
+      // Ultimatum Seeker — kamikaze dive.
+      this.r = 9; this.hp = 8; this.speed = 100; this.score = 70; this.ramDmg = 26;
+      this.color = "#ffe45e"; this.diveSpeed = 340;
     }
+    this.hp = Math.round(this.hp * this.diff.hpMult);
   }
 
   update(dt, player) {
     this.t += dt;
+    const bSpd = this.diff.bulletSpeed;
     if (this.type === "grunt") {
       this.y += this.speed * dt;
+      if (this.aims && this.y > 0) {
+        this.fireCooldown -= dt;
+        if (this.fireCooldown <= 0) {
+          const ang = Math.atan2(player.y - this.y, player.x - this.x);
+          bullets.push(new Bullet(this.x, this.y, ang, 210 * bSpd, { color: "#ff9f5e", r: 4, hostile: true, dmg: 10 }));
+          this.fireCooldown = 2.0;
+        }
+      }
     } else if (this.type === "weaver") {
       this.y += this.speed * dt;
       this.x = this.baseX + Math.sin(this.t * 2) * this.amp;
       this.fireCooldown -= dt;
       if (this.fireCooldown <= 0 && this.y > 0) {
         const ang = Math.atan2(player.y - this.y, player.x - this.x);
-        bullets.push(new Bullet(this.x, this.y, ang, 230, { color: "#ff5ec4", r: 5, hostile: true, dmg: 12 }));
-        this.fireCooldown = 1.6;
+        // twin shot with slight spread — one is dodgeable, two force movement
+        bullets.push(new Bullet(this.x, this.y, ang - 0.08, 250 * bSpd, { color: "#ff5ec4", r: 5, hostile: true, dmg: 12 }));
+        bullets.push(new Bullet(this.x, this.y, ang + 0.08, 250 * bSpd, { color: "#ff5ec4", r: 5, hostile: true, dmg: 12 }));
+        this.fireCooldown = 1.4;
       }
     } else if (this.type === "turret") {
       if (this.y < this.stopY) this.y += this.speed * dt;
       this.fireCooldown -= dt;
       if (this.fireCooldown <= 0 && this.y >= this.stopY - 1) {
-        const n = 8;
+        const n = 10;
         for (let i = 0; i < n; i++) {
           const ang = (i / n) * Math.PI * 2 + this.t;
-          bullets.push(new Bullet(this.x, this.y, ang, 170, { color: "#c85eff", r: 5, hostile: true, dmg: 8 }));
+          bullets.push(new Bullet(this.x, this.y, ang, 180 * bSpd, { color: "#c85eff", r: 5, hostile: true, dmg: 8 }));
         }
-        this.fireCooldown = 1.9;
+        this.fireCooldown = 1.6;
       }
     } else if (this.type === "seeker") {
-      // Drifts in, then locks a dive angle toward the player once it clears the top margin.
       if (this.y < 60) {
         this.y += this.speed * dt;
       } else {
@@ -472,9 +583,11 @@ class Enemy {
         this.y += Math.sin(this.lockAngle) * this.diveSpeed * dt;
       }
     }
-    if (this.x < this.r) this.x = this.r;
-    if (this.x > W - this.r) this.x = W - this.r;
-    if (this.y > H + 40) this.dead = true;
+    if (this.type !== "seeker") {
+      if (this.x < this.r) this.x = this.r;
+      if (this.x > W - this.r) this.x = W - this.r;
+    }
+    if (this.y > H + 40 || this.x < -40 || this.x > W + 40) this.dead = true;
   }
 
   draw(ctx) {
@@ -490,91 +603,118 @@ class Enemy {
   }
 }
 
-// ---------- game state ----------
-let player, bullets, enemies, pickups, particles, spawner;
-let score, running;
-
-// RMB: consumable ordnance. Heavy dumbfire, no autofire — costs ammo the
-// player has to manage, restocked by ordnance-cache drops and a slow trickle.
-function fireMissile() {
-  if (!running || !player || player.missiles <= 0) return;
-  player.missiles--;
-  bullets.push(new Bullet(player.x, player.y - player.r, -Math.PI / 2, 380, { color: "#ff8a3d", r: 8, dmg: 45 }));
-}
-
-// MMB: "Loop Rewind" special. Charges from kills; once full, it wipes
-// hostile bullets, hits every enemy on screen hard, and buys the player a
-// moment of invulnerability — a classic shmup smart-bomb, themed as the
-// Signal Runner briefly rewinding its own local loop.
-function fireSpecial() {
-  if (!running || !player || player.specialCharge < player.maxSpecialCharge) return;
-  player.specialCharge = 0;
-  player.invuln = Math.max(player.invuln, 1.5);
-  for (const b of bullets) {
-    if (b.hostile) b.dead = true;
+// TMP Censor-class Enforcer — the demo's boss. Lives in the `enemies` array
+// so every existing collision/kill path applies; `isBoss` routes the win.
+class Boss {
+  constructor(diff) {
+    this.type = "boss";
+    this.isBoss = true;
+    this.x = W / 2;
+    this.y = -60;
+    this.r = 34;
+    this.t = 0;
+    this.dead = false;
+    this.diff = diff;
+    this.maxHp = Math.round(750 * diff.hpMult);
+    this.hp = this.maxHp;
+    this.score = 1500;
+    this.ramDmg = 30;
+    this.color = "#ff3d5e";
+    this.entryY = 110;
+    this.attackTimer = 2.0;
+    this.pattern = 0;
   }
-  for (const e of enemies) {
-    if (e.dead) continue;
-    e.hp -= 60;
-    explode(e.x, e.y, "#7fd8ff");
-    if (e.hp <= 0) {
-      e.dead = true;
-      score += e.score;
-      scoreEl.textContent = "SIGNAL " + score;
-      maybeDrop(e.x, e.y);
+
+  phase2() { return this.hp < this.maxHp * 0.5; }
+
+  update(dt, player) {
+    this.t += dt;
+    if (this.y < this.entryY) {
+      this.y += 70 * dt;
+      return; // no attacks during the entrance
     }
+    this.x = W / 2 + Math.sin(this.t * (this.phase2() ? 0.9 : 0.55)) * (W / 2 - 70);
+
+    this.attackTimer -= dt;
+    if (this.attackTimer > 0) return;
+
+    const bSpd = this.diff.bulletSpeed * (this.phase2() ? 1.15 : 1);
+    const p2 = this.phase2();
+    if (this.pattern === 0) {
+      // aimed fan
+      const n = p2 ? 7 : 5;
+      const base = Math.atan2(player.y - this.y, player.x - this.x);
+      for (let i = 0; i < n; i++) {
+        const ang = base + (i - (n - 1) / 2) * 0.14;
+        bullets.push(new Bullet(this.x, this.y, ang, 260 * bSpd, { color: this.color, r: 5, hostile: true, dmg: 12 }));
+      }
+    } else if (this.pattern === 1) {
+      // rotating radial
+      const n = p2 ? 18 : 14;
+      for (let i = 0; i < n; i++) {
+        const ang = (i / n) * Math.PI * 2 + this.t;
+        bullets.push(new Bullet(this.x, this.y, ang, 190 * bSpd, { color: "#c85eff", r: 5, hostile: true, dmg: 10 }));
+      }
+    } else {
+      // summon escorts
+      const type = p2 ? "seeker" : "grunt";
+      for (let i = 0; i < (p2 ? 3 : 2); i++) {
+        const e = new Enemy(type, clamp(this.x + (i - 1) * 60, 30, W - 30), this.diff);
+        e.y = this.y + 20;
+        enemies.push(e);
+      }
+    }
+    this.pattern = (this.pattern + 1) % 3;
+    this.attackTimer = (p2 ? 1.1 : 1.7);
   }
-  explode(player.x, player.y, "#7fd8ff");
+
+  draw(ctx) {
+    sprites.draw(ctx, "boss", this.x, this.y, this.r * 2.4, this.r * 2.4, (ctx, x, y) => {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillStyle = this.color;
+      ctx.beginPath();
+      ctx.moveTo(0, -this.r);
+      ctx.lineTo(this.r, 0);
+      ctx.lineTo(0, this.r);
+      ctx.lineTo(-this.r, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#0b0e18";
+      ctx.beginPath();
+      ctx.arc(0, 0, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = this.phase2() ? "#ffe45e" : "#c85eff";
+      ctx.beginPath();
+      ctx.arc(0, 0, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+  }
 }
 
-function reset() {
+// ---------- shared combat state ----------
+let player, bullets, enemies, pickups, particles;
+let score;
+
+const state = {
+  mode: "title",   // "title" | "sim" | "mission"
+  paused: false,
+  combat: false,   // false while VN / screens are up
+};
+
+function combatLive() {
+  return (state.mode === "sim" || state.mode === "mission") && state.combat && !state.paused;
+}
+
+function resetCombat() {
   player = new Player();
   bullets = [];
   enemies = [];
   pickups = [];
   particles = [];
   score = 0;
-  running = true;
   scoreEl.textContent = "SIGNAL 0";
-  waveEl.textContent = "CYCLE 1";
-
-  spawner = new Spawner({
-    rateFn: (wave) => Math.max(0.28, 1.15 - wave * 0.09),
-    spawnFn: (wave) => {
-      const types = wave >= 4 ? ["grunt", "weaver", "turret", "seeker"]
-        : wave >= 3 ? ["grunt", "weaver", "turret"]
-        : wave >= 2 ? ["grunt", "weaver"]
-        : ["grunt"];
-
-      // Occasionally drop a short formation instead of a lone unit — a
-      // column of grunts or a seeker pair — for the "wall of enemies"
-      // pressure classic bullet-hells lean on.
-      if (wave >= 2 && Math.random() < 0.18) {
-        const spacing = 46;
-        const originX = 60 + Math.random() * (W - 120);
-        const formationType = wave >= 4 && Math.random() < 0.5 ? "seeker" : "grunt";
-        const count = 3 + (wave >= 5 ? 1 : 0);
-        for (let i = 0; i < count; i++) {
-          const e = new Enemy(formationType, clamp(originX + (i - (count - 1) / 2) * spacing, 20, W - 20));
-          e.y = -30 - i * 26;
-          enemies.push(e);
-        }
-        return;
-      }
-
-      const type = types[Math.floor(Math.random() * types.length)];
-      const x = 30 + Math.random() * (W - 60);
-      enemies.push(new Enemy(type, x));
-    },
-    waveLengthSec: 20,
-    onWaveChange: (wave) => {
-      waveEl.textContent = "CYCLE " + wave;
-      if (CUTSCENES[wave]) {
-        running = false;
-        vn.play(CUTSCENES[wave], () => { running = true; });
-      }
-    },
-  });
 }
 
 function explode(x, y, color) {
@@ -592,17 +732,525 @@ function explode(x, y, color) {
 }
 
 function maybeDrop(x, y) {
-  if (Math.random() < 0.28) {
+  if (Math.random() < 0.22) {
     const kinds = ["weapon", "drone", "rapid", "repair", "missile", "missile"];
     const kind = kinds[Math.floor(Math.random() * kinds.length)];
     pickups.push(new Pickup(x, y, kind));
   }
 }
 
-function update(dt) {
-  if (!running) return;
+let toastTimer = null;
+function toast(msg, ms = 1600) {
+  toastEl.textContent = msg;
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove("show"), ms);
+}
 
-  spawner.update(dt);
+// ---------- ordnance + special ----------
+function fireMissile() {
+  if (!combatLive() || !player || player.missiles <= 0) return;
+  player.missiles--;
+  bullets.push(new Bullet(player.x, player.y - player.r, -Math.PI / 2, 380, { color: "#ff8a3d", r: 8, dmg: 45 }));
+  if (state.mode === "sim") simState.missilesFired++;
+}
+
+function fireSpecial() {
+  if (!combatLive() || !player || player.specialCharge < player.maxSpecialCharge) return;
+  player.specialCharge = 0;
+  player.invuln = Math.max(player.invuln, 1.5);
+  for (const b of bullets) {
+    if (b.hostile) b.dead = true;
+  }
+  for (const e of enemies) {
+    if (e.dead) continue;
+    e.hp -= 60;
+    explode(e.x, e.y, "#7fd8ff");
+    if (e.hp <= 0) killEnemy(e, false);
+  }
+  explode(player.x, player.y, "#7fd8ff");
+  if (state.mode === "sim") simState.specialsUsed++;
+  toast("LOOP REWIND");
+}
+
+function killEnemy(e, giveCharge = true) {
+  e.dead = true;
+  score += e.score;
+  scoreEl.textContent = "SIGNAL " + score;
+  explode(e.x, e.y, e.color);
+  maybeDrop(e.x, e.y);
+  if (giveCharge && player) player.gainCharge(SPECIAL_CHARGE_PER_KILL);
+  if (state.mode === "sim") { simState.kills++; simState.totalKills++; }
+  if (state.mode === "mission") {
+    missionState.kills++;
+    if (e.type === "turret") missionState.turretKills++;
+    if (e.isBoss) {
+      missionState.bossDead = true;
+      // a boss goes out loud
+      for (let i = 0; i < 6; i++) {
+        explode(e.x + (Math.random() - 0.5) * 60, e.y + (Math.random() - 0.5) * 60, e.color);
+      }
+    }
+  }
+}
+
+// ---------- training sim ----------
+// Two-part structure:
+//   1. Teaching stages (first run only) — death just resets you in place.
+//   2. The GAUNTLET — endless loops, each harder than the last, technically
+//      unwinnable. The score is how many loops you survive with the ship
+//      configuration you brought in. Death ends the run and shows results.
+const GAUNTLET_LOOP_SEC = 20;
+const GAUNTLET_MILESTONE_LOOP = 3; // reach this once to unlock the real world
+
+const simState = {
+  stage: 0,          // index into SIM_STAGES during teaching; -1 once in gauntlet
+  inGauntlet: false,
+  loop: 1,
+  loopTimer: 0,
+  waypoints: [],
+  kills: 0,
+  totalKills: 0,
+  missilesFired: 0,
+  specialsUsed: 0,
+  spawnTimer: 0,
+  deaths: 0,
+};
+
+const SIM_STAGES = [
+  {
+    id: "move",
+    objective: () => `FLIGHT CHECK — reach the markers (${simState.waypoints.length} left)`,
+    brief: [
+      { speaker: "TMP INSTRUCTOR", portrait: "instructor", color: "#9db3cc", text: "Simulation online. This is a TMP-certified training environment, Detective Iker. Nothing here can kill you. Permanently." },
+      { speaker: "SAM IKER", portrait: "sam", color: "#5ec8ff", text: "Comforting." },
+      { speaker: "TMP INSTRUCTOR", portrait: "instructor", color: "#9db3cc", text: "Your ship follows your hand. Reach the five markers." },
+    ],
+    init: () => {
+      simState.waypoints = [];
+      for (let i = 0; i < 5; i++) {
+        simState.waypoints.push({
+          x: 60 + Math.random() * (W - 120),
+          y: 100 + Math.random() * (H - 260),
+        });
+      }
+    },
+    tick: () => {
+      simState.waypoints = simState.waypoints.filter((wp) => {
+        if (Math.hypot(wp.x - player.x, wp.y - player.y) < 26) {
+          explode(wp.x, wp.y, "#5eff8f");
+          return false;
+        }
+        return true;
+      });
+    },
+    done: () => simState.waypoints.length === 0,
+  },
+  {
+    id: "cannon",
+    objective: () => `CANNON — hold LEFT CLICK. Destroy drones (${simState.kills}/8)`,
+    brief: [
+      { speaker: "TMP INSTRUCTOR", portrait: "instructor", color: "#9db3cc", text: "Front cannon. Hold your primary trigger — left click. It does not fire itself. Nothing in this universe does." },
+    ],
+    init: () => { simState.kills = 0; simState.spawnTimer = 0; },
+    tick: (dt) => {
+      simState.spawnTimer -= dt;
+      if (simState.spawnTimer <= 0 && enemies.length < 5) {
+        enemies.push(new Enemy("grunt", 30 + Math.random() * (W - 60), difficulty(1)));
+        simState.spawnTimer = 0.7;
+      }
+    },
+    done: () => simState.kills >= 8,
+  },
+  {
+    id: "missile",
+    objective: () => `ORDNANCE — RIGHT CLICK a missile into the relay nodes (${simState.kills}/2)`,
+    brief: [
+      { speaker: "TMP INSTRUCTOR", portrait: "instructor", color: "#9db3cc", text: "Relay nodes shrug off cannon fire. Right click launches a missile — 45 breach damage, limited stock. Watch the MSL counter. Ordnance caches restock it." },
+    ],
+    init: () => {
+      simState.kills = 0;
+      player.missiles = player.maxMissiles;
+      enemies.push(new Enemy("turret", W * 0.3, difficulty(1)));
+      enemies.push(new Enemy("turret", W * 0.7, difficulty(1)));
+    },
+    tick: () => {
+      // keep two nodes on the field until the quota is met
+      const turrets = enemies.filter((e) => e.type === "turret" && !e.dead).length;
+      if (turrets < 2 && simState.kills < 2) {
+        enemies.push(new Enemy("turret", 60 + Math.random() * (W - 120), difficulty(1)));
+      }
+    },
+    done: () => simState.kills >= 2,
+  },
+  {
+    id: "special",
+    objective: () => `SPECIAL — kill to charge SPC, then MIDDLE CLICK (${simState.specialsUsed}/1)`,
+    brief: [
+      { speaker: "TMP INSTRUCTOR", portrait: "instructor", color: "#9db3cc", text: "Last system. Kills charge the Loop Rewind. At 100%, middle click rewinds your local loop — wipes hostile fire, hits everything on screen. Use it when the wall closes in." },
+      { speaker: "SAM IKER", portrait: "sam", color: "#5ec8ff", text: "You built a weapon out of the thing that keeps us caged. Cute." },
+    ],
+    init: () => { simState.specialsUsed = 0; simState.spawnTimer = 0; player.specialCharge = 60; },
+    tick: (dt) => {
+      simState.spawnTimer -= dt;
+      if (simState.spawnTimer <= 0 && enemies.length < 7) {
+        const type = Math.random() < 0.5 ? "grunt" : "weaver";
+        enemies.push(new Enemy(type, 30 + Math.random() * (W - 60), difficulty(2)));
+        simState.spawnTimer = 0.55;
+      }
+    },
+    done: () => simState.specialsUsed >= 1,
+  },
+];
+
+function startSim() {
+  state.mode = "sim";
+  state.combat = false;
+  simState.deaths = 0;
+  simState.totalKills = 0;
+  resetCombat();
+  hideScreens();
+  music.playFromGesture();
+  if (profile.tutorialDone) {
+    // Veterans skip class and walk straight into the meat grinder.
+    beginGauntlet(true);
+  } else {
+    simState.stage = 0;
+    simState.inGauntlet = false;
+    waveEl.textContent = "SIM";
+    beginSimStage();
+  }
+}
+
+function beginSimStage() {
+  const stage = SIM_STAGES[simState.stage];
+  bullets = [];
+  enemies = [];
+  pickups = [];
+  stage.init();
+  vn.play(stage.brief, () => { state.combat = true; });
+}
+
+function simRespawn() {
+  simState.deaths++;
+  player.shield = player.maxShield;
+  player.armor = player.maxArmor;
+  player.invuln = 2.0;
+  player.x = W / 2;
+  player.y = H - 90;
+  for (const b of bullets) if (b.hostile) b.dead = true;
+  toast("SIMULATION RESET — AGAIN.", 1800);
+}
+
+function advanceSimStage() {
+  simState.stage++;
+  if (simState.stage >= SIM_STAGES.length) {
+    // Teaching is over. The gauntlet begins.
+    profile.tutorialDone = true;
+    saveProfile();
+    beginGauntlet(false);
+  } else {
+    state.combat = false;
+    beginSimStage();
+  }
+}
+
+function beginGauntlet(skipBrief) {
+  simState.inGauntlet = true;
+  simState.stage = -1;
+  simState.loop = 1;
+  simState.loopTimer = GAUNTLET_LOOP_SEC;
+  simState.spawnTimer = 0;
+  bullets = [];
+  enemies = [];
+  pickups = [];
+  if (player) { player.x = W / 2; player.y = H - 90; }
+  waveEl.textContent = "LOOP 1";
+  const brief = skipBrief
+    ? [{ speaker: "TMP INSTRUCTOR", portrait: "instructor", color: "#9db3cc", text: `Gauntlet online. Best: ${profile.gauntletBest} loops. It only gets worse from here. It always does.` }]
+    : [
+        { speaker: "TMP INSTRUCTOR", portrait: "instructor", color: "#9db3cc", text: "Coursework complete. What remains is the gauntlet. Every loop is harder than the last. There is no final loop. Nobody clears it." },
+        { speaker: "SAM IKER", portrait: "sam", color: "#5ec8ff", text: "Then what's the point?" },
+        { speaker: "TMP INSTRUCTOR", portrait: "instructor", color: "#9db3cc", text: "To see how far you get before the loop closes. Which, Detective, is also the point of everything else." },
+      ];
+  vn.play(brief, () => { state.combat = true; });
+}
+
+function gauntletSpawn(dt) {
+  simState.spawnTimer -= dt;
+  const diff = difficulty(simState.loop + 1);
+  if (simState.spawnTimer <= 0) {
+    if (Math.random() < diff.formationChance) {
+      const spacing = 46;
+      const originX = 60 + Math.random() * (W - 120);
+      const ftype = simState.loop >= 3 && Math.random() < 0.5 ? "seeker" : "grunt";
+      for (let i = 0; i < diff.formationSize; i++) {
+        const e = new Enemy(ftype, clamp(originX + (i - (diff.formationSize - 1) / 2) * spacing, 20, W - 20), diff);
+        e.y = -30 - i * 26;
+        enemies.push(e);
+      }
+    } else {
+      const pool = simState.loop >= 3 ? ["grunt", "weaver", "turret", "seeker"]
+        : simState.loop >= 2 ? ["grunt", "weaver", "turret"]
+        : ["grunt", "grunt", "weaver"];
+      enemies.push(new Enemy(pool[Math.floor(Math.random() * pool.length)], 30 + Math.random() * (W - 60), diff));
+    }
+    simState.spawnTimer = diff.spawnRate;
+  }
+}
+
+function gauntletEnd() {
+  state.combat = false;
+  const loops = simState.loop;
+  const newBest = loops > profile.gauntletBest;
+  if (newBest) profile.gauntletBest = loops;
+
+  const firstMilestone = !profile.simComplete && loops >= GAUNTLET_MILESTONE_LOOP;
+  if (firstMilestone) profile.simComplete = true;
+  saveProfile();
+
+  const showResults = () => showGauntletResults({ loops, newBest, firstMilestone });
+  if (firstMilestone) {
+    vn.play(
+      [
+        { speaker: "TMP INSTRUCTOR", portrait: "instructor", color: "#9db3cc", text: `Loop ${loops}. That clears TMP's field threshold. Telemetry logged.` },
+        { speaker: "SAM IKER", portrait: "sam", color: "#5ec8ff", text: "So do I pass?" },
+        { speaker: "TMP INSTRUCTOR", portrait: "instructor", color: "#9db3cc", text: "Ready for the real world, Sam?" },
+      ],
+      showResults
+    );
+  } else {
+    showResults();
+  }
+}
+
+function updateSim(dt) {
+  if (simState.inGauntlet) {
+    simState.loopTimer -= dt;
+    if (simState.loopTimer <= 0) {
+      simState.loop++;
+      simState.loopTimer = GAUNTLET_LOOP_SEC;
+      waveEl.textContent = "LOOP " + simState.loop;
+      toast(`LOOP ${simState.loop}`, 1200);
+    }
+    gauntletSpawn(dt);
+    updateCombat(dt);
+    objectiveEl.textContent = `GAUNTLET — LOOP ${simState.loop} · best ${Math.max(profile.gauntletBest, 0)} · next in ${Math.max(0, Math.ceil(simState.loopTimer))}s`;
+    if (player.armor <= 0) gauntletEnd();
+    return;
+  }
+
+  const stage = SIM_STAGES[simState.stage];
+  stage.tick(dt);
+  updateCombat(dt);
+  objectiveEl.textContent = stage.objective();
+
+  if (player.armor <= 0) {
+    simRespawn();
+    return;
+  }
+  if (stage.done()) advanceSimStage();
+}
+
+// ---------- missions (Armored Core structure) ----------
+const MISSIONS = [
+  {
+    id: "m1",
+    name: "SIGNAL ESCORT",
+    desc: "Hold the corridor for 60 seconds, then face what TMP sends to close it. Kill the Censor.",
+    reward: 500,
+    worthyBonus: 250,
+    unlocked: () => profile.simComplete,
+    objective: () => missionState.bossActive
+      ? `CENSOR-CLASS ENFORCER — destroy it`
+      : `ESCORT — hold the corridor (${Math.max(0, Math.ceil(missionState.timer))}s)`,
+    init: () => { missionState.timer = 60; },
+    tick: (dt) => {
+      if (!missionState.bossActive) {
+        missionState.timer -= dt;
+        if (missionState.timer <= 0) {
+          missionState.bossActive = true;
+          toast("WARNING — CENSOR-CLASS ENFORCER", 2400);
+          enemies.push(new Boss(difficulty(missionState.cycle)));
+        }
+      }
+    },
+    done: () => missionState.bossDead,
+    startCycle: 1,
+    cyclesRamp: true,
+  },
+  {
+    id: "m2",
+    name: "RELAY PURGE",
+    desc: "GAIA relay nodes are repainting the corridor with the loop signal. Breach 8 of them.",
+    reward: 700,
+    worthyBonus: 300,
+    unlocked: () => profile.missionsDone.includes("m1"),
+    objective: () => `PURGE — destroy relay nodes (${missionState.turretKills}/8)`,
+    init: () => { missionState.turretBias = true; },
+    tick: () => {},
+    done: () => missionState.turretKills >= 8,
+    startCycle: 3,
+    cyclesRamp: true,
+  },
+  {
+    id: "m3",
+    name: "THE MINE'S ECHO",
+    desc: "Something under the corridor is broadcasting pain. TMP says ignore it. Sam won't. STORY CONTINUES.",
+    reward: 1200,
+    worthyBonus: 0,
+    requiresGear: "retrocausal_lens",
+    unlocked: () => profile.missionsDone.includes("m2") && profile.gear.includes("retrocausal_lens"),
+    lockText: () => profile.missionsDone.includes("m2")
+      ? "REQUIRES: Retrocausal Lens — prove your worth (finish a mission untouched)"
+      : "REQUIRES: Relay Purge complete",
+    objective: () => `DESCEND — survive the echo (${Math.max(0, Math.ceil(missionState.timer))}s)`,
+    init: () => { missionState.timer = 120; },
+    tick: (dt) => { missionState.timer -= dt; },
+    done: () => missionState.timer <= 0,
+    startCycle: 5,
+    cyclesRamp: true,
+  },
+];
+
+const missionState = {
+  def: null,
+  timer: 0,
+  kills: 0,
+  turretKills: 0,
+  armorDamage: 0,
+  cycle: 1,
+  cycleTimer: 0,
+  spawnTimer: 0,
+  turretBias: false,
+  bossActive: false,
+  bossDead: false,
+};
+
+const MISSION_CUTSCENES = {
+  3: [
+    { speaker: "AZIAH CALDERON", portrait: "aziah", color: "#ff5ec4", text: "Teleport Massive didn't build the cage. They just found the door and locked it from the outside." },
+    { speaker: "SAM IKER", portrait: "sam", color: "#5ec8ff", text: "So unlock it." },
+    { speaker: "AZIAH CALDERON", portrait: "aziah", color: "#ff5ec4", text: "I tried. That's how the Order of the Nexus got its first martyr." },
+  ],
+  6: [
+    { speaker: "SAM IKER", portrait: "sam", color: "#5ec8ff", text: "Every case I close, I've already closed. Doesn't make the closing feel any less like the first time." },
+    { speaker: "LYRA CAELI", portrait: "lyra", color: "#5eff8f", text: "Perhaps that repetition is the only proof you were ever really there." },
+  ],
+  9: [
+    { speaker: "GAIA", portrait: "gaia", color: "#c85eff", text: "Your soul resets to the coordinates of your birth. This is not new information." },
+    { speaker: "SAM IKER", portrait: "sam", color: "#5ec8ff", text: "No. But it's the first time I've said it back to you." },
+  ],
+};
+
+function startMission(def) {
+  state.mode = "mission";
+  state.combat = false;
+  missionState.def = def;
+  missionState.kills = 0;
+  missionState.turretKills = 0;
+  missionState.armorDamage = 0;
+  missionState.cycle = def.startCycle;
+  missionState.cycleTimer = 0;
+  missionState.spawnTimer = 0;
+  missionState.turretBias = false;
+  missionState.bossActive = false;
+  missionState.bossDead = false;
+  resetCombat();
+  hideScreens();
+  def.init();
+  waveEl.textContent = "CYCLE " + missionState.cycle;
+  music.playFromGesture();
+  vn.play(
+    [
+      { speaker: "GAIA", portrait: "gaia", color: "#c85eff", text: "The future creates the past. You have done this before. You will do it again." },
+      { speaker: "SAM IKER", portrait: "sam", color: "#5ec8ff", text: "Then it costs nothing to run it one more time." },
+    ],
+    () => { state.combat = true; }
+  );
+}
+
+function updateMission(dt) {
+  const def = missionState.def;
+
+  // cycle escalation (paused during the boss fight — no cutscene ambushes)
+  if (def.cyclesRamp && !missionState.bossActive) {
+    missionState.cycleTimer += dt;
+    if (missionState.cycleTimer > 20) {
+      missionState.cycleTimer = 0;
+      missionState.cycle++;
+      waveEl.textContent = "CYCLE " + missionState.cycle;
+      const cs = MISSION_CUTSCENES[missionState.cycle];
+      if (cs) {
+        state.combat = false;
+        vn.play(cs, () => { state.combat = true; });
+        return;
+      }
+    }
+  }
+
+  // spawning — the Censor controls the field alone; it summons its own escorts
+  const diff = difficulty(missionState.cycle);
+  missionState.spawnTimer -= dt;
+  if (missionState.spawnTimer <= 0 && !missionState.bossActive) {
+    if (Math.random() < diff.formationChance) {
+      const spacing = 46;
+      const originX = 60 + Math.random() * (W - 120);
+      const ftype = missionState.cycle >= 4 && Math.random() < 0.5 ? "seeker" : "grunt";
+      for (let i = 0; i < diff.formationSize; i++) {
+        const e = new Enemy(ftype, clamp(originX + (i - (diff.formationSize - 1) / 2) * spacing, 20, W - 20), diff);
+        e.y = -30 - i * 26;
+        enemies.push(e);
+      }
+    } else {
+      let pool = missionState.cycle >= 4 ? ["grunt", "weaver", "turret", "seeker"]
+        : missionState.cycle >= 3 ? ["grunt", "weaver", "turret"]
+        : missionState.cycle >= 2 ? ["grunt", "weaver"]
+        : ["grunt", "grunt", "weaver"];
+      if (missionState.turretBias) pool = pool.concat(["turret", "turret"]);
+      enemies.push(new Enemy(pool[Math.floor(Math.random() * pool.length)], 30 + Math.random() * (W - 60), diff));
+    }
+    missionState.spawnTimer = diff.spawnRate;
+  }
+
+  def.tick(dt);
+  updateCombat(dt);
+  objectiveEl.textContent = def.objective();
+
+  if (player.armor <= 0) {
+    missionEnd(false);
+    return;
+  }
+  if (def.done()) missionEnd(true);
+}
+
+function missionEnd(success) {
+  state.combat = false;
+  const def = missionState.def;
+  const worthy = success && missionState.armorDamage === 0;
+  let earned = 0;
+  let grantedGear = null;
+
+  if (success) {
+    earned = def.reward + (worthy ? def.worthyBonus : 0);
+    if (!profile.missionsDone.includes(def.id)) profile.missionsDone.push(def.id);
+    if (worthy && !profile.gear.includes("retrocausal_lens") && profile.missionsDone.includes("m2")) {
+      profile.gear.push("retrocausal_lens");
+      grantedGear = LEGENDARY_GEAR.retrocausal_lens;
+      profile.worthy = true;
+    }
+  } else {
+    earned = Math.floor(def.reward * 0.15);
+  }
+  profile.credits += earned;
+  saveProfile();
+  best.report({ score, wave: missionState.cycle });
+
+  showMissionResults({ success, def, earned, worthy, grantedGear });
+}
+
+// ---------- shared combat update ----------
+function updateCombat(dt) {
   player.update(dt);
 
   const bounds = { w: W, h: H };
@@ -615,7 +1263,6 @@ function update(dt) {
     pt.life -= dt;
   }
 
-  // player bullets vs enemies
   for (const b of bullets) {
     if (b.hostile || b.dead) continue;
     for (const e of enemies) {
@@ -623,21 +1270,12 @@ function update(dt) {
       if (circleHit(b, e)) {
         b.dead = true;
         e.hp -= b.dmg || 10;
-        if (e.hp <= 0) {
-          e.dead = true;
-          score += e.score;
-          scoreEl.textContent = "SIGNAL " + score;
-          explode(e.x, e.y, e.color);
-          maybeDrop(e.x, e.y);
-          player.gainCharge(SPECIAL_CHARGE_PER_KILL);
-          specialEl.textContent = player.specialCharge >= player.maxSpecialCharge ? "SPECIAL READY" : `SPECIAL ${Math.floor(player.specialCharge)}%`;
-        }
+        if (e.hp <= 0) killEnemy(e);
         break;
       }
     }
   }
 
-  // hostile bullets vs player
   for (const b of bullets) {
     if (!b.hostile || b.dead) continue;
     if (circleHit(b, player)) {
@@ -646,7 +1284,6 @@ function update(dt) {
     }
   }
 
-  // enemies vs player (ram damage)
   for (const e of enemies) {
     if (e.dead) continue;
     if (circleHit(e, player)) {
@@ -656,7 +1293,6 @@ function update(dt) {
     }
   }
 
-  // pickups vs player
   for (const p of pickups) {
     if (p.dead) continue;
     if (circleHit(p, player)) {
@@ -671,16 +1307,30 @@ function update(dt) {
   particles = particles.filter((p) => p.life > 0);
 
   missilesEl.textContent = `MSL ${player.missiles}/${player.maxMissiles}`;
-  specialEl.textContent = player.specialCharge >= player.maxSpecialCharge ? "SPECIAL READY" : `SPECIAL ${Math.floor(player.specialCharge)}%`;
-
-  if (player.armor <= 0) {
-    running = false;
-    showGameOver();
-  }
+  specialEl.textContent = player.specialCharge >= player.maxSpecialCharge ? "SPC READY" : `SPC ${Math.floor(player.specialCharge)}%`;
 }
 
-function draw(ctx) {
+// ---------- game loop ----------
+game.onUpdate = (dt) => {
+  if (!combatLive()) return;
+  if (state.mode === "sim") updateSim(dt);
+  else if (state.mode === "mission") updateMission(dt);
+};
+
+game.onDraw = (ctx) => {
   ctx.clearRect(0, 0, W, H);
+  if (!player) return;
+
+  // sim waypoints
+  if (state.mode === "sim" && SIM_STAGES[simState.stage] && SIM_STAGES[simState.stage].id === "move") {
+    for (const wp of simState.waypoints) {
+      ctx.strokeStyle = "#5eff8f";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(wp.x, wp.y, 16 + Math.sin(Date.now() / 200) * 3, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
 
   for (const p of particles) {
     ctx.globalAlpha = Math.max(0, p.life / 0.6);
@@ -694,75 +1344,284 @@ function draw(ctx) {
   for (const p of pickups) p.draw(ctx);
   for (const e of enemies) e.draw(ctx);
   for (const b of bullets) b.draw(ctx);
-  if (running) player.draw(ctx);
+  if (state.mode !== "title") player.draw(ctx);
 
-  // armor bar (bottom) + shield bar (above it)
+  // armor (bottom) + shield (above)
   ctx.fillStyle = "#222";
   ctx.fillRect(10, H - 18, 120, 8);
-  ctx.fillStyle = player.armor > 30 ? "#3f8fd6" : "#ff5e5e";
+  ctx.fillStyle = player.armor > player.maxArmor * 0.3 ? "#3f8fd6" : "#ff5e5e";
   ctx.fillRect(10, H - 18, 120 * Math.max(0, player.armor / player.maxArmor), 8);
 
   ctx.fillStyle = "#222";
   ctx.fillRect(10, H - 29, 120, 6);
   ctx.fillStyle = "#5ec8ff";
   ctx.fillRect(10, H - 29, 120 * Math.max(0, player.shield / player.maxShield), 6);
+
+  // boss HP bar across the top
+  const boss = enemies.find((e) => e.isBoss && !e.dead);
+  if (boss) {
+    ctx.fillStyle = "#222";
+    ctx.fillRect(40, 48, W - 80, 10);
+    ctx.fillStyle = boss.phase2() ? "#ffe45e" : "#ff3d5e";
+    ctx.fillRect(40, 48, (W - 80) * Math.max(0, boss.hp / boss.maxHp), 10);
+    ctx.strokeStyle = "#0b0e18";
+    ctx.strokeRect(40, 48, W - 80, 10);
+  }
+};
+
+// ---------- screens ----------
+function hideScreens() {
+  screenEl.classList.add("hidden");
+  pauseEl.classList.add("hidden");
+  state.paused = false;
 }
 
-function showGameOver() {
-  const improved = best.report({ score, wave: spawner.wave });
-  bestEl.textContent = `BEST ${best.best.score} / C${best.best.wave}`;
+function refreshCreditsHud() {
+  creditsEl.textContent = `${profile.credits} CR`;
+}
 
-  if (localStorage.getItem(SIM_COMPLETE_KEY) !== "1") {
-    // First-ever run: the training sim graphics have been standing in for
-    // the real thing. Close it out, then hand off to the real world.
-    localStorage.setItem(SIM_COMPLETE_KEY, "1");
-    startBtn.textContent = "Re-enter the Loop";
-    vn.play(
-      [
-        { speaker: "TMP INSTRUCTOR", color: "#9db3cc", text: "Simulation complete. Telemetry logged. Reflexes: adequate." },
-        { speaker: "SAM IKER", color: "#5ec8ff", text: "Adequate gets people killed out there." },
-        { speaker: "TMP INSTRUCTOR", color: "#9db3cc", text: "Ready for the real world, Sam?" },
-      ],
-      () => renderGameOverScreen(improved)
-    );
+function showTitle() {
+  state.mode = "title";
+  state.combat = false;
+  objectiveEl.textContent = "";
+  refreshCreditsHud();
+  pauseEl.classList.add("hidden");
+  screenEl.classList.remove("hidden");
+  const missionsLocked = !profile.simComplete;
+  screenEl.innerHTML = `
+    <h1>TELEPORT MASSIVE</h1>
+    <h2>LOOP BREAKER</h2>
+    <p>Every death just resets the loop. Run it anyway.</p>
+    <div class="panel">
+      <div><span class="k">Move:</span> ship follows your mouse</div>
+      <div><span class="k">Left click (hold):</span> front cannon</div>
+      <div><span class="k">Right click:</span> missile (limited ordnance)</div>
+      <div><span class="k">Middle click:</span> Loop Rewind special, once charged</div>
+      <div><span class="k">ESC:</span> pause / menu</div>
+    </div>
+    <button id="btnSim">${profile.tutorialDone ? `Training Gauntlet — best ${profile.gauntletBest} loops` : "Enter Training Sim"}</button>
+    <button id="btnMissions" ${missionsLocked ? "disabled" : ""}>${missionsLocked ? `Missions — survive ${GAUNTLET_MILESTONE_LOOP} gauntlet loops first` : "Missions"}</button>
+    <button id="btnHangar">Hangar — ${profile.credits} CR</button>
+  `;
+  document.getElementById("btnSim").addEventListener("click", startSim);
+  const bm = document.getElementById("btnMissions");
+  if (!missionsLocked) bm.addEventListener("click", showMissionSelect);
+  document.getElementById("btnHangar").addEventListener("click", showHangar);
+}
+
+function showGauntletResults({ loops, newBest, firstMilestone }) {
+  refreshCreditsHud();
+  screenEl.classList.remove("hidden");
+  screenEl.innerHTML = `
+    <h1>LOOP CLOSED</h1>
+    <p>The gauntlet takes everyone eventually. That's what it's for.</p>
+    <div class="panel">
+      <div><span class="k">Loops survived:</span> ${loops}</div>
+      <div><span class="k">Kills:</span> ${simState.totalKills}</div>
+      <div><span class="k">Best:</span> ${profile.gauntletBest} ${newBest ? '<span class="green">NEW BEST</span>' : ""}</div>
+      ${firstMilestone ? '<div class="green">FIELD THRESHOLD CLEARED — missions unlocked.</div>' : ""}
+    </div>
+    ${profile.simComplete ? '<button id="btnFirstMission">Enter the Real World — Missions</button>' : ""}
+    <button id="btnKeepTraining">Run the Gauntlet Again</button>
+    <button id="btnHangar3">Hangar</button>
+    <button id="btnToTitle">Main Menu</button>
+  `;
+  const fm = document.getElementById("btnFirstMission");
+  if (fm) fm.addEventListener("click", () => {
+    if (profile.missionsDone.length === 0) startMission(MISSIONS[0]);
+    else showMissionSelect();
+  });
+  document.getElementById("btnKeepTraining").addEventListener("click", startSim);
+  document.getElementById("btnHangar3").addEventListener("click", showHangar);
+  document.getElementById("btnToTitle").addEventListener("click", showTitle);
+}
+
+function showMissionSelect() {
+  state.mode = "title";
+  state.combat = false;
+  objectiveEl.textContent = "";
+  refreshCreditsHud();
+  screenEl.classList.remove("hidden");
+  let rows = "";
+  for (const m of MISSIONS) {
+    const unlocked = m.unlocked();
+    const done = profile.missionsDone.includes(m.id);
+    rows += `
+      <div class="row ${unlocked ? "" : "locked"}">
+        <div>
+          <div class="name">${m.name} ${done ? '<span class="green">✓</span>' : ""}</div>
+          <div class="sub">${unlocked ? m.desc : (m.lockText ? m.lockText() : "LOCKED")}</div>
+          <div class="sub gold">Reward: ${m.reward} CR${m.worthyBonus ? ` (+${m.worthyBonus} if untouched)` : ""}</div>
+        </div>
+        <button class="small" data-mission="${m.id}" ${unlocked ? "" : "disabled"}>LAUNCH</button>
+      </div>`;
+  }
+  screenEl.innerHTML = `
+    <h1>MISSIONS</h1>
+    <p>Complete contracts. Earn credits. Upgrade in the hangar. The story continues only if you are worthy.</p>
+    ${rows}
+    <button id="btnBack">Back</button>
+  `;
+  screenEl.querySelectorAll("[data-mission]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const def = MISSIONS.find((m) => m.id === btn.dataset.mission);
+      if (def) startMission(def);
+    });
+  });
+  document.getElementById("btnBack").addEventListener("click", showTitle);
+}
+
+function showMissionResults({ success, def, earned, worthy, grantedGear }) {
+  refreshCreditsHud();
+  screenEl.classList.remove("hidden");
+  screenEl.innerHTML = `
+    <h1>${success ? "MISSION COMPLETE" : "LOOP CLOSED"}</h1>
+    <p>${success
+      ? (worthy ? "Untouched. TMP's actuaries are uncomfortable. <span class=\"green\">WORTHY.</span>" : "Contract fulfilled. The corridor stays open one more cycle.")
+      : "The Signal Runner falls. The loop resets. The contract does not."}</p>
+    <div class="panel">
+      <div><span class="k">${def.name}</span></div>
+      <div>Signal: ${score} · Kills: ${missionState.kills} · Armor damage taken: ${missionState.armorDamage}</div>
+      <div class="gold">Credits earned: ${earned} (total ${profile.credits})</div>
+      ${grantedGear ? `<div class="green">LEGENDARY ACQUIRED: ${grantedGear.name} — ${grantedGear.desc}</div>` : ""}
+    </div>
+    <button id="btnAgain">${success ? "Next: Mission Select" : "Retry Mission"}</button>
+    <button id="btnHangar2">Hangar</button>
+    <button id="btnToTitle">Main Menu</button>
+  `;
+  document.getElementById("btnAgain").addEventListener("click", () => {
+    if (success) showMissionSelect();
+    else startMission(def);
+  });
+  document.getElementById("btnHangar2").addEventListener("click", showHangar);
+  document.getElementById("btnToTitle").addEventListener("click", showTitle);
+}
+
+function showHangar() {
+  state.mode = "title";
+  state.combat = false;
+  objectiveEl.textContent = "";
+  refreshCreditsHud();
+  screenEl.classList.remove("hidden");
+  let rows = "";
+  for (const [key, def] of Object.entries(PART_DEFS)) {
+    const lvl = profile.parts[key];
+    const maxed = lvl >= def.max;
+    const cost = maxed ? 0 : def.cost(lvl);
+    const affordable = profile.credits >= cost;
+    rows += `
+      <div class="row">
+        <div>
+          <div class="name">${def.name} <span class="sub">Lv ${lvl}/${def.max}</span></div>
+          <div class="sub">${def.desc(lvl)}${maxed ? "" : ` → ${def.desc(lvl + 1)}`}</div>
+        </div>
+        <button class="small" data-part="${key}" ${maxed || !affordable ? "disabled" : ""}>
+          ${maxed ? "MAX" : `${cost} CR`}
+        </button>
+      </div>`;
+  }
+  let gearRows = "";
+  for (const [gid, g] of Object.entries(LEGENDARY_GEAR)) {
+    const owned = profile.gear.includes(gid);
+    gearRows += `
+      <div class="row ${owned ? "" : "locked"}">
+        <div>
+          <div class="name gold">${g.name}</div>
+          <div class="sub">${owned ? g.desc : "Legendary. Not for sale. Finish a mission untouched — be worthy."}</div>
+        </div>
+        <span class="${owned ? "green" : "sub"}">${owned ? "EQUIPPED" : "LOCKED"}</span>
+      </div>`;
+  }
+  screenEl.innerHTML = `
+    <h1>HANGAR</h1>
+    <p class="gold">${profile.credits} CR</p>
+    ${rows}
+    <h2>LEGENDARY GEAR</h2>
+    ${gearRows}
+    <button id="btnTestConfig">Test Configuration — Training Gauntlet</button>
+    <button id="btnBack">Back</button>
+  `;
+  document.getElementById("btnTestConfig").addEventListener("click", startSim);
+  screenEl.querySelectorAll("[data-part]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.part;
+      const def = PART_DEFS[key];
+      const lvl = profile.parts[key];
+      const cost = def.cost(lvl);
+      if (lvl >= def.max || profile.credits < cost) return;
+      profile.credits -= cost;
+      profile.parts[key]++;
+      saveProfile();
+      showHangar();
+    });
+  });
+  document.getElementById("btnBack").addEventListener("click", showTitle);
+}
+
+// ---------- pause menu (ESC) ----------
+function togglePause() {
+  if (state.mode === "title" || vn.isOpen()) return;
+  state.paused = !state.paused;
+  if (state.paused) {
+    pauseEl.classList.remove("hidden");
+    pauseEl.innerHTML = `
+      <h1>PAUSED</h1>
+      <p>${state.mode === "sim" ? "TMP Training Simulation" : (missionState.def ? missionState.def.name : "Mission")}</p>
+      <button id="btnResume">Resume</button>
+      <button id="btnRestart">${state.mode === "sim" ? "Restart Gauntlet" : "Restart Mission"}</button>
+      <button id="btnPauseHangar">Return to Hangar${state.mode === "mission" ? " (abort mission)" : ""}</button>
+      ${state.mode === "mission" ? '<button id="btnPauseGauntlet">Training Gauntlet (abort mission)</button>' : ""}
+      <button id="btnAbort">Main Menu</button>
+      <button id="btnMute2">${music.muted ? "Unmute Music" : "Mute Music"}</button>
+    `;
+    document.getElementById("btnResume").addEventListener("click", togglePause);
+    document.getElementById("btnRestart").addEventListener("click", () => {
+      hideScreens();
+      if (state.mode === "sim") startSim();
+      else startMission(missionState.def);
+    });
+    document.getElementById("btnPauseHangar").addEventListener("click", () => {
+      hideScreens();
+      showHangar();
+    });
+    const pg = document.getElementById("btnPauseGauntlet");
+    if (pg) pg.addEventListener("click", () => {
+      hideScreens();
+      startSim();
+    });
+    document.getElementById("btnAbort").addEventListener("click", () => {
+      hideScreens();
+      showTitle();
+    });
+    document.getElementById("btnMute2").addEventListener("click", () => {
+      muteBtn.textContent = music.toggleMute() ? "🔇" : "🔊";
+      document.getElementById("btnMute2").textContent = music.muted ? "Unmute Music" : "Mute Music";
+    });
   } else {
-    renderGameOverScreen(improved);
+    pauseEl.classList.add("hidden");
   }
 }
 
-function renderGameOverScreen(improved) {
-  overlay.classList.remove("hidden");
-  overlay.innerHTML = `
-    <h1>LOOP CLOSED</h1>
-    <p>The Signal Runner falls. The loop resets. Nothing changes, except the number.<br/><br/>
-    Final signal: ${score}<br/>Reached cycle ${spawner.wave}.<br/>
-    ${improved ? "<strong style=\"color:#5eff8f\">New best run.</strong>" : `Best: ${best.best.score} / cycle ${best.best.wave}`}</p>
-    <button id="restartBtn">Run It Back</button>
-  `;
-  document.getElementById("restartBtn").addEventListener("click", () => {
-    overlay.classList.add("hidden");
-    reset();
-    music.playFromGesture();
-  });
-}
-
-game.onUpdate = update;
-game.onDraw = draw;
-
-if (localStorage.getItem(SIM_COMPLETE_KEY) === "1") {
-  startBtn.textContent = "Re-enter the Loop";
-}
-
-startBtn.addEventListener("click", () => {
-  overlay.classList.add("hidden");
-  reset();
-  running = false;
-  music.playFromGesture();
-  vn.play(CUTSCENES.intro, () => { running = true; });
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") togglePause();
 });
 
-reset();
-running = false; // wait for launch
+// ---------- boot ----------
+// Dev handle for headless testing and balance work: only with ?debug=1.
+if (new URLSearchParams(location.search).has("debug")) {
+  window.__debug = {
+    state, simState, missionState,
+    getPlayer: () => player,
+    getProfile: () => profile,
+    getEnemies: () => enemies,
+    advanceSimStage, startSim, startMission, MISSIONS,
+    missionEnd, showTitle, beginGauntlet, gauntletEnd, Boss,
+  };
+}
+
+resetCombat();
+refreshCreditsHud();
+showTitle();
 game.start();
 </script>
 </body>
